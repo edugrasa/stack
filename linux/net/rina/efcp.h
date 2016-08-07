@@ -85,6 +85,7 @@ cep_id_t                efcp_src_cep_id(struct efcp * efcp);
 cep_id_t                efcp_dst_cep_id(struct efcp * efcp);
 address_t               efcp_src_addr(struct efcp * efcp);
 address_t               efcp_dst_addr(struct efcp * efcp);
+void                    efcp_dst_addr_set(struct efcp  * efcp, address_t dst_addr);
 qos_id_t                efcp_qos_id(struct efcp * efcp);
 port_id_t               efcp_port_id(struct efcp * efcp);
 

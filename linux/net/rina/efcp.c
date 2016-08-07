@@ -354,6 +354,10 @@ EXPORT_SYMBOL(efcp_src_addr);
 address_t efcp_dst_addr(struct efcp * efcp)
 { return connection_dst_addr(efcp->connection); }
 
+void efcp_dst_addr_set(struct efcp * efcp, address_t dst_addr)
+{ connection_dst_addr_set(efcp->connection, dst_addr); }
+EXPORT_SYMBOL(efcp_dst_addr_set);
+
 qos_id_t efcp_qos_id(struct efcp * efcp)
 { return connection_qos_id(efcp->connection); }
 
