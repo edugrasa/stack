@@ -1048,6 +1048,10 @@ public:
         /// Request the kernel to update the state of cryptographic protection policies
         unsigned int updateCryptoState(const CryptoState& state);
 
+        /// Inform the kernel that the IPCP address has changed
+        unsigned int changeAddress(unsigned int new_address,
+        						   unsigned int old_address);
+
         /**
          * Request the Kernel IPC Process to modify a policy-set-related
          * parameter.
