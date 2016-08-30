@@ -1190,6 +1190,15 @@ int normal_update_crypto_state(struct ipcp_instance_data * data,
 				        port_id);
 }
 
+int normal_address_change(struct ipcp_instance_data * data,
+			  address_t new_address,
+			  address_t old_address)
+{
+	LOG_INFO("Need to change address from %u to %u. Not implemented yet!",
+		 new_address, old_address);
+	return 0;
+}
+
 static struct ipcp_instance_ops normal_instance_ops = {
         .flow_allocate_request     = NULL,
         .flow_allocate_response    = NULL,
@@ -1234,6 +1243,7 @@ static struct ipcp_instance_ops normal_instance_ops = {
         .enable_write              = enable_write,
         .disable_write             = disable_write,
         .update_crypto_state       = normal_update_crypto_state,
+	.address_change            = normal_address_change,
         .dif_name		   = normal_dif_name
 };
 

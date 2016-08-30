@@ -349,6 +349,10 @@ struct ipcp_instance_ops {
 
         int (* enable_write)(struct ipcp_instance_data * data, port_id_t id);
         int (* disable_write)(struct ipcp_instance_data * data, port_id_t id);
+
+        int (* address_change)(struct ipcp_instance_data * data,
+        		       address_t new_address,
+			       address_t old_address);
 };
 
 /* FIXME: Should work on struct ipcp_instance, not on ipcp_instance_ops */
