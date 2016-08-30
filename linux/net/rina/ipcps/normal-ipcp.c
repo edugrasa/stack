@@ -73,6 +73,7 @@ struct ipcp_instance_data {
         struct rmt *            rmt;
         struct sdup *           sdup;
         address_t               address;
+        address_t		old_address;
         struct mgmt_data *      mgmt_data;
         spinlock_t              lock;
         struct list_head        list;
@@ -668,7 +669,7 @@ static int normal_assign_to_dif(struct ipcp_instance_data * data,
         	return -1;
         }
 
-        if (rmt_address_set(data->rmt, data->address)) {
+        if (rmt_address_add(data->rmt, data->address)) {
 		LOG_ERR("Could not set local Address to RMT");
                 return -1;
 	}
@@ -1196,6 +1197,20 @@ int normal_address_change(struct ipcp_instance_data * data,
 {
 	LOG_INFO("Need to change address from %u to %u. Not implemented yet!",
 		 new_address, old_address);
+
+	if (!data) {
+		LOG_ERR("Bogus data passed");
+		return -1;
+	}
+
+	data->old_address = old_address;
+	data->address = new_address;
+	rmt_address_add(data->rmt, new_address);
+
+	/* TODO, set timer1 to start advertising new address in EFCP connections
+	and MGMT PDUs */;
+	/* TODO, set timer2 to stop accepting old address in RMT; */
+
 	return 0;
 }
 

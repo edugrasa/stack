@@ -94,8 +94,6 @@ struct rmt	  *rmt_create(struct kfa *kfa,
 			      struct sdup *sdup,
 			      struct robject *parent);
 int		   rmt_destroy(struct rmt *instance);
-int		   rmt_address_set(struct rmt *instance,
-				   address_t address);
 int		   rmt_dt_cons_set(struct rmt *instance,
 				   struct dt_cons *dt_cons);
 struct serdes *    rmt_serdes(struct rmt * instance);
@@ -136,6 +134,10 @@ int		   rmt_set_policy_set_param(struct rmt *rmt,
 					    const string_t *path,
 					    const string_t *name,
 					    const string_t *value);
+int		   rmt_address_add(struct rmt *instance,
+				   address_t address);
+int		   rmt_address_remove(struct rmt *instance,
+				      address_t address);
 struct rmt	  *rmt_from_component(struct rina_component *component);
 struct robject    *rmt_robject(struct rmt * instance);
 #endif
