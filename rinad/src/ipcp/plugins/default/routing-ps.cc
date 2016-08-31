@@ -1127,6 +1127,22 @@ void FlowStateObjects::deprecateObjects(unsigned int neigh_address,
 	}
 }
 
+void FlowStateObjects::deprecateObjectsWithAddress(unsigned int address,
+						   unsigned int max_age)
+{
+	rina::ScopedLock g(lock);
+
+	std::map<std::string, FlowStateObject *>::iterator it;
+	for (it = objects.begin(); it != objects.end();
+			++it) {
+		if (it->second->get_neighboraddress() == address ||
+				it->second->get_address() == address) {
+			it->second->deprecateObject(max_age);
+			modified_ = true;
+		}
+	}
+}
+
 void FlowStateObjects::removeObject(const std::string& fqn)
 {
 	rina::ScopedLock g(lock);
@@ -1442,6 +1458,11 @@ void FlowStateManager::deprecateObjectsNeighbor(unsigned int neigh_address,
 			       maximum_age);
 }
 
+void FlowStateManager::deprecteAllObjectsWithAddress(unsigned int address)
+{
+	fsos->deprecateObjectsWithAddress(address, maximum_age);
+}
+
 bool FlowStateManager::tableUpdate() const
 {
 	bool result = fsos->is_modified();
@@ -1514,6 +1535,18 @@ void UpdateAgeTimerTask::run()
 	lsr_policy_->timer_->scheduleTask(task, delay_);
 }
 
+ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
+						     unsigned int addr)
+{
+	lsr_policy_ = lsr_policy;
+	address = addr;
+}
+
+void ExpireOldAddressTimerTask::run()
+{
+	lsr_policy_->expireOldAddress(address);
+}
+
 // CLASS LinkStateRoutingPolicy
 const std::string LinkStateRoutingPolicy::OBJECT_MAXIMUM_AGE = "objectMaximumAge";
 const std::string LinkStateRoutingPolicy::WAIT_UNTIL_READ_CDAP = "waitUntilReadCDAP";
@@ -1559,6 +1592,8 @@ void LinkStateRoutingPolicy::subscribeToEvents()
 		subscribeToEvent(rina::InternalEvent::APP_NEIGHBOR_ADDED, this);
 	ipc_process_->internal_event_manager_->
 		subscribeToEvent(rina::InternalEvent::APP_CONNECTIVITY_TO_NEIGHBOR_LOST, this);
+	ipc_process_->internal_event_manager_->
+		subscribeToEvent(rina::InternalEvent::ADDRESS_CHANGE, this);
 }
 
 void LinkStateRoutingPolicy::set_dif_configuration(
@@ -1644,21 +1679,55 @@ void LinkStateRoutingPolicy::eventHappened(rina::InternalEvent * event)
 	rina::ScopedLock g(lock_);
 
 	if (event->type == rina::InternalEvent::APP_N_MINUS_1_FLOW_DEALLOCATED) {
-			rina::NMinusOneFlowDeallocatedEvent * flowEvent =
+		rina::NMinusOneFlowDeallocatedEvent * flowEvent =
 				(rina::NMinusOneFlowDeallocatedEvent *) event;
-			processFlowDeallocatedEvent(flowEvent);
+		processFlowDeallocatedEvent(flowEvent);
 	} else if (event->type == rina::InternalEvent::APP_N_MINUS_1_FLOW_ALLOCATED) {
-			rina::NMinusOneFlowAllocatedEvent * flowEvent =
-				(rina::NMinusOneFlowAllocatedEvent *) event;
-			processFlowAllocatedEvent(flowEvent);
+		rina::NMinusOneFlowAllocatedEvent * flowEvent =
+			(rina::NMinusOneFlowAllocatedEvent *) event;
+		processFlowAllocatedEvent(flowEvent);
 	} else if (event->type == rina::InternalEvent::APP_NEIGHBOR_ADDED) {
-			rina::NeighborAddedEvent * neighEvent = (rina::NeighborAddedEvent *) event;
-			processNeighborAddedEvent(neighEvent);
+		rina::NeighborAddedEvent * neighEvent = (rina::NeighborAddedEvent *) event;
+		processNeighborAddedEvent(neighEvent);
 	} else if (event->type == rina::InternalEvent::APP_CONNECTIVITY_TO_NEIGHBOR_LOST) {
-			rina::ConnectiviyToNeighborLostEvent * neighEvent =
-					(rina::ConnectiviyToNeighborLostEvent *) event;
-			processNeighborLostEvent(neighEvent);
+		rina::ConnectiviyToNeighborLostEvent * neighEvent =
+			(rina::ConnectiviyToNeighborLostEvent *) event;
+		processNeighborLostEvent(neighEvent);
+	} else if (event->type == rina::InternalEvent::ADDRESS_CHANGE) {
+		rina::AddressChangeEvent * addrEvent =
+			(rina::AddressChangeEvent *) event;
+		processAddressChangeEvent(addrEvent);
 	}
+}
+
+void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent * event)
+{
+	std::list<FlowStateObject> all_fsos;
+	std::list<FlowStateObject> updated_fsos;
+
+	db_->getAllFSOs(all_fsos);
+
+	//Add LSOs to reflect the routes to the new address
+	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
+			it != all_fsos.end(); ++it) {
+		if (it->get_address() == event->old_address) {
+			db_->addNewFSO(event->new_address,
+				       it->get_neighboraddress(), 1, 0);
+		} else if (it->get_neighboraddress() == event->old_address) {
+			db_->addNewFSO(it->get_address(),
+				       event->new_address, 1, 0);
+		}
+	}
+
+	//Schedule task to remove all objects with old address
+	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
+									 event->old_address);
+	timer_->scheduleTask(task, 10000);
+}
+
+void LinkStateRoutingPolicy::expireOldAddress(unsigned int address)
+{
+	db_->deprecteAllObjectsWithAddress(address);
 }
 
 void LinkStateRoutingPolicy::processFlowDeallocatedEvent(

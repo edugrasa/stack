@@ -600,6 +600,8 @@ void EnrollmentTask::subscribeToEvents()
 					 this);
 	event_manager_->subscribeToEvent(rina::InternalEvent::APP_NEIGHBOR_DECLARED_DEAD,
 					 this);
+	event_manager_->subscribeToEvent(rina::InternalEvent::ADDRESS_CHANGE,
+					 this);
 }
 
 void EnrollmentTask::eventHappened(rina::InternalEvent * event)
