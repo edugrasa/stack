@@ -43,6 +43,7 @@
 #include "rmt.h"
 #include "sdup.h"
 #include "efcp-utils.h"
+#include "rds/rtimer.h"
 
 /*  FIXME: To be removed ABSOLUTELY */
 extern struct kipcm * default_kipcm;
@@ -77,6 +78,11 @@ struct ipcp_instance_data {
         struct mgmt_data *      mgmt_data;
         spinlock_t              lock;
         struct list_head        list;
+        /* Timers required for the address change procedure */
+        struct {
+                struct rtimer * use_naddress;
+                struct rtimer * kill_oaddress;
+        } timers;
 };
 
 enum normal_flow_state {
@@ -1207,11 +1213,44 @@ int normal_address_change(struct ipcp_instance_data * data,
 	data->address = new_address;
 	rmt_address_add(data->rmt, new_address);
 
-	/* TODO, set timer1 to start advertising new address in EFCP connections
-	and MGMT PDUs */;
-	/* TODO, set timer2 to stop accepting old address in RMT; */
+	/* Set timer to start advertising new address in EFCP connections
+	and MGMT PDUs (give time to routing updates to converge) */;
+	rtimer_restart(data->timers.use_naddress, 3000);
+	/* Set timer to stop accepting old address in RMT */
+	rtimer_restart(data->timers.kill_oaddress, 10000);
 
 	return 0;
+}
+
+/* Runs the New Address Timer function */
+static void tf_use_naddress(void * data)
+{
+        struct ipcp_instance_data * inst_data;
+        struct efcp_imap *	    efcp_instances;
+
+        LOG_INFO("Running Use New Address Timer...");
+        inst_data = (struct ipcp_instance_data *) data;
+        if (!inst_data) {
+                LOG_ERR("No IPCP instance data to work with");
+                return;
+        }
+
+        efcp_address_change(inst_data->efcpc, inst_data->address);
+}
+
+/* Runs the Kill old address Timer function */
+static void tf_kill_oaddress(void * data)
+{
+        struct ipcp_instance_data * inst_data;
+
+        LOG_INFO("Running Kill Old Address Timer...");
+        inst_data = (struct ipcp_instance_data *) data;
+        if (!inst_data) {
+                LOG_ERR("No IPCP instance data to work with");
+                return;
+        }
+
+        rmt_address_remove(inst_data->rmt, inst_data->old_address);
 }
 
 static struct ipcp_instance_ops normal_instance_ops = {
@@ -1412,6 +1451,11 @@ static struct ipcp_instance * normal_create(struct ipcp_factory_data * data,
                 return NULL;
         }
 
+        instance->data->timers.use_naddress = rtimer_create(tf_use_naddress,
+                        				    instance->data);
+        instance->data->timers.kill_oaddress = rtimer_create(tf_kill_oaddress,
+        						     instance->data);
+
         INIT_LIST_HEAD(&instance->data->flows);
         INIT_LIST_HEAD(&instance->data->list);
         spin_lock_init(&instance->data->lock);
@@ -1467,6 +1511,10 @@ static int normal_destroy(struct ipcp_factory_data * data,
         sdup_destroy(tmp->sdup);
         mgmt_data_destroy(tmp->mgmt_data);
 
+        if (tmp->timers.use_naddress)
+                rtimer_destroy(tmp->timers.use_naddress);
+        if (tmp->timers.kill_oaddress)
+                rtimer_destroy(tmp->timers.kill_oaddress);
         rkfree(tmp);
         rkfree(instance);
 
