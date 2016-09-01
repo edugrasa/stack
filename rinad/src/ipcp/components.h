@@ -110,6 +110,8 @@ public:
 	virtual IEnrollmentStateMachine * getEnrollmentStateMachine(int portId, bool remove) = 0;
 	virtual void deallocateFlow(int portId) = 0;
 	virtual void add_enrollment_state_machine(int portId, IEnrollmentStateMachine * stateMachine) = 0;
+	virtual void addressChangeTellNeighbors(unsigned int new_address,
+				        	unsigned int old_address) = 0;
 };
 
 /// Policy set of the IPCP enrollment task

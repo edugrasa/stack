@@ -174,6 +174,7 @@ void IPCProcessImpl::eventHappened(rina::InternalEvent * event)
 
 void IPCProcessImpl::addressChange(rina::AddressChangeEvent * event)
 {
+	set_address(event->new_address);
 	rina::kernelIPCProcess->changeAddress(event->new_address,
 					      event->old_address);
 }

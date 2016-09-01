@@ -542,6 +542,22 @@ void EnrollmentFailedTimerTask::run() {
 	}
 }
 
+//Class ETAddressChangeTimerTask
+ETAddressChangeTimerTask::ETAddressChangeTimerTask(IPCPEnrollmentTask * et,
+		       	       	       	       	   unsigned int naddr,
+						   unsigned int oaddr)
+{
+	enrollment_task = et;
+	new_address = naddr;
+	old_address = oaddr;
+}
+
+void ETAddressChangeTimerTask::ETAddressChangeTimerTask::run()
+{
+	enrollment_task->addressChangeTellNeighbors(new_address,
+				       	       	    old_address);
+}
+
 //Class Enrollment Task
 const std::string EnrollmentTask::ENROLL_TIMEOUT_IN_MS = "enrollTimeoutInMs";
 const std::string EnrollmentTask::WATCHDOG_PERIOD_IN_MS = "watchdogPeriodInMs";
@@ -562,6 +578,7 @@ EnrollmentTask::EnrollmentTask() : IPCPEnrollmentTask()
 	watchdog_per_ms_ = 0;
 	declared_dead_int_ms_ = 0;
 	neigh_enroll_per_ms_ = 0;
+	ipcp_ps = 0;
 }
 
 EnrollmentTask::~EnrollmentTask()
@@ -622,6 +639,31 @@ void EnrollmentTask::eventHappened(rina::InternalEvent * event)
 		rina::NeighborDeclaredDeadEvent * deadEvent =
 				(rina::NeighborDeclaredDeadEvent *) event;
 		neighborDeclaredDead(deadEvent);
+	}else if (event->type == rina::InternalEvent::ADDRESS_CHANGE) {
+		rina::AddressChangeEvent * addrEvent =
+				(rina::AddressChangeEvent *) event;
+		addressChange(addrEvent);
+	}
+}
+
+void EnrollmentTask::addressChange(rina::AddressChangeEvent * event)
+{
+	//Set timer to communicate address change to all neighbors
+	ETAddressChangeTimerTask * task = new ETAddressChangeTimerTask(this,
+								       event->new_address,
+								       event->old_address);
+	timer.scheduleTask(task, 3000);
+}
+
+void EnrollmentTask::addressChangeTellNeighbors(unsigned int new_address,
+						unsigned int old_address)
+{
+	rina::ScopedLock g(lock_);
+
+	std::list<IEnrollmentStateMachine *> machines = state_machines_.getEntries();
+	std::list<IEnrollmentStateMachine *>::const_iterator it;
+	for (it = machines.begin(); it != machines.end(); ++it) {
+		//TODO send message to each peer
 	}
 }
 
