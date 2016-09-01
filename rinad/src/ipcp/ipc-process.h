@@ -50,10 +50,11 @@ private:
 	rina::Sleep sleep;
 };
 
-class IPCProcessImpl: public IPCProcess {
+class IPCProcessImpl: public IPCProcess, public rina::InternalEventListener {
 	friend class IPCPFactory;
 public:
         ~IPCProcessImpl();
+        void eventHappened(rina::InternalEvent * event);
         unsigned short get_id();
         const std::list<rina::Neighbor> get_neighbors() const;
         const IPCProcessOperationalState& get_operational_state() const;
@@ -98,6 +99,8 @@ private:
                         unsigned short id, unsigned int ipc_manager_port,
                         std::string log_level, std::string log_file);
 
+        void subscribeToEvents();
+        void addressChange(rina::AddressChangeEvent * event);
         IPCProcessOperationalState state;
 		std::map<unsigned int, rina::AssignToDIFRequestEvent> pending_events_;
         std::map<unsigned int, rina::SetPolicySetParamRequestEvent>

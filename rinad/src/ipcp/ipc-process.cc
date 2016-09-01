@@ -117,6 +117,8 @@ IPCProcessImpl::IPCProcessImpl(const rina::ApplicationProcessNamingInformation& 
         add_entity(flow_allocator_);
         add_entity(security_manager_);
 
+        subscribeToEvents();
+
         try {
                 rina::ApplicationProcessNamingInformation naming_info(name_, instance_);
                 rina::extendedIPCManager->notifyIPCProcessInitialized(naming_info);
@@ -153,6 +155,27 @@ IPCProcessImpl::~IPCProcessImpl() {
 	delete resource_allocator_;
 	delete rib_daemon_;
 	delete enrollment_task_;
+}
+
+void IPCProcessImpl::subscribeToEvents()
+{
+	internal_event_manager_->subscribeToEvent(rina::InternalEvent::ADDRESS_CHANGE,
+					 	  this);
+}
+
+void IPCProcessImpl::eventHappened(rina::InternalEvent * event)
+{
+	if (event->type == rina::InternalEvent::ADDRESS_CHANGE){
+		rina::AddressChangeEvent * addrEvent =
+				(rina::AddressChangeEvent *) event;
+		addressChange(addrEvent);
+	}
+}
+
+void IPCProcessImpl::addressChange(rina::AddressChangeEvent * event)
+{
+	rina::kernelIPCProcess->changeAddress(event->new_address,
+					      event->old_address);
 }
 
 unsigned short IPCProcessImpl::get_id() {
