@@ -235,10 +235,27 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 					  exc_neighs);
 }
 
+//Class AddressChangeTimerTask
+AddressChangeTimerTask::AddressChangeTimerTask(INamespaceManager * nsm,
+		       	       	       	       unsigned int naddr,
+					       unsigned int oaddr)
+{
+	namespace_manager = nsm;
+	new_address = naddr;
+	old_address = oaddr;
+}
+
+void AddressChangeTimerTask::run()
+{
+	namespace_manager->addressChangeUpdateDFT(new_address,
+						  old_address);
+}
+
 //Class Namespace Manager
 NamespaceManager::NamespaceManager() : INamespaceManager()
 {
 	rib_daemon_ = 0;
+	event_manager_ = 0;
 }
 
 NamespaceManager::~NamespaceManager()
@@ -260,6 +277,8 @@ void NamespaceManager::set_application_process(rina::ApplicationProcess * ap)
 	}
 
 	rib_daemon_ = ipcp->rib_daemon_;
+	event_manager_ = ipcp->internal_event_manager_;
+	subscribeToEvents();
 	populateRIB();
 }
 
@@ -286,6 +305,78 @@ void NamespaceManager::populateRIB()
 		rib_daemon_->addObjRIB(DFTRIBObj::object_name, &tmp);
 	} catch (rina::Exception &e) {
 		LOG_ERR("Problems adding object to the RIB : %s", e.what());
+	}
+}
+
+void NamespaceManager::subscribeToEvents()
+{
+	event_manager_->subscribeToEvent(rina::InternalEvent::ADDRESS_CHANGE,
+					 this);
+}
+
+void NamespaceManager::eventHappened(rina::InternalEvent * event)
+{
+	if (event->type == rina::InternalEvent::ADDRESS_CHANGE){
+		rina::AddressChangeEvent * addrEvent =
+				(rina::AddressChangeEvent *) event;
+		addressChange(addrEvent);
+	}
+}
+
+void NamespaceManager::addressChange(rina::AddressChangeEvent * event)
+{
+	//Set timer to modify entries in DFT (first give enough time
+	//to routing to advertise new address, 3000 ms is enough for
+	//the current scope - demo)
+	AddressChangeTimerTask * task = new AddressChangeTimerTask(this,
+								   event->new_address,
+								   event->old_address);
+	timer.scheduleTask(task, 3000);
+}
+
+void NamespaceManager::addressChangeUpdateDFT(unsigned int new_address,
+			    	    	      unsigned int old_address)
+{
+	std::list<rina::DirectoryForwardingTableEntry> mod_entries;
+	rina::DirectoryForwardingTableEntry * entry;
+	std::vector<int> session_ids;
+
+	rina::ScopedLock g(lock);
+
+	std::list<std::string> keys = dft_.getKeys();
+	for(std::list<std::string>::iterator it = keys.begin();
+			it != keys.end(); ++it) {
+		entry = dft_.find(*it);
+		if (entry->address_ == old_address) {
+			entry->address_ = new_address;
+			mod_entries.push_back(*entry);
+		}
+	}
+
+	if (mod_entries.size() == 0)
+		return;
+
+	rina::cdap::getProvider()->get_session_manager()->getAllCDAPSessionIds(session_ids);
+	encoders::DFTEListEncoder encoder;
+	rina::cdap_rib::obj_info_t obj;
+	obj.class_ = DFTRIBObj::class_name;
+	obj.name_ = DFTRIBObj::object_name;
+	encoder.encode(mod_entries, obj.value_);
+	rina::cdap_rib::flags_t flags;
+	rina::cdap_rib::filt_info_t filt;
+	rina::cdap_rib::con_handle_t con;
+	for (int i = 0; i < session_ids.size(); i++) {
+		try {
+			con.port_id = session_ids[i];
+			ipcp->rib_daemon_->getProxy()->remote_create(con,
+								     obj,
+								     flags,
+								     filt,
+								     NULL);
+		} catch (rina::Exception &e) {
+			LOG_WARN("Problems sending create CDAP message: %s",
+					e.what());
+		}
 	}
 }
 
@@ -358,7 +449,7 @@ void NamespaceManager::addDFTEntries(const std::list<rina::DirectoryForwardingTa
 								     filt,
 								     NULL);
 		} catch (rina::Exception &e) {
-			LOG_WARN("Problems sending delete CDAP message: %s",
+			LOG_WARN("Problems sending create CDAP message: %s",
 					e.what());
 		}
 	}

@@ -298,6 +298,9 @@ public:
 	virtual void add_whatevercast_name(rina::WhatevercastName * name) = 0;
 
 	virtual void remove_whatevercast_name(const std::string& name_key) = 0;
+
+	virtual void addressChangeUpdateDFT(unsigned int new_address,
+				    	    unsigned int old_address) = 0;
 };
 
 ///N-1 Flow Manager interface
