@@ -1510,6 +1510,8 @@ static int normal_destroy(struct ipcp_factory_data * data,
         rmt_destroy(tmp->rmt);
         sdup_destroy(tmp->sdup);
         mgmt_data_destroy(tmp->mgmt_data);
+        name_fini(&tmp->name);
+        name_fini(&tmp->dif_name);
 
         if (tmp->timers.use_naddress)
                 rtimer_destroy(tmp->timers.use_naddress);
