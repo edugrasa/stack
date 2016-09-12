@@ -1620,7 +1620,9 @@ static int notify_ipcp_address_change(void *             data,
         if (ipc_process->ops->address_change) {
                 retval = ipc_process->ops->address_change(ipc_process->data,
                                 			  attrs->new_address,
-                                			  attrs->old_address);
+                                			  attrs->old_address,
+							  attrs->use_new_timeout,
+							  attrs->deprecate_old_timeout);
                 if (retval) {
                         LOG_ERR("Address change operation failed");
                 }

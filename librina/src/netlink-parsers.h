@@ -1532,6 +1532,8 @@ IPCPUpdateCryptoStateResponseMessage * parseIPCPUpdateCryptoStateResponseMessage
 enum IPCPAddressChangeRequestMessageAttributes {
         ACRM_ATTR_NEW_ADDRESS = 1,
 	ACRM_ATTR_OLD_ADDRESS,
+	ACRM_ATTR_USE_NEW_TIMEOUT,
+	ACRM_ATTR_DEPRECATE_OLD_TIMEOUT,
         __ACRM_ATTR_MAX,
 };
 

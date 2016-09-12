@@ -1199,7 +1199,9 @@ int normal_update_crypto_state(struct ipcp_instance_data * data,
 
 int normal_address_change(struct ipcp_instance_data * data,
 			  address_t new_address,
-			  address_t old_address)
+			  address_t old_address,
+			  uint_t use_new_address_t,
+			  uint_t deprecate_old_address_t)
 {
 	LOG_INFO("Need to change address from %u to %u. Not implemented yet!",
 		 new_address, old_address);
@@ -1215,9 +1217,9 @@ int normal_address_change(struct ipcp_instance_data * data,
 
 	/* Set timer to start advertising new address in EFCP connections
 	and MGMT PDUs (give time to routing updates to converge) */;
-	rtimer_restart(data->timers.use_naddress, 3000);
+	rtimer_restart(data->timers.use_naddress, use_new_address_t);
 	/* Set timer to stop accepting old address in RMT */
-	rtimer_restart(data->timers.kill_oaddress, 10000);
+	rtimer_restart(data->timers.kill_oaddress, deprecate_old_address_t);
 
 	return 0;
 }

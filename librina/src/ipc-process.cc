@@ -1241,7 +1241,9 @@ unsigned int KernelIPCProcess::updateCryptoState(const CryptoState& state)
 }
 
 unsigned int KernelIPCProcess::changeAddress(unsigned int new_address,
-					     unsigned int old_address)
+					     unsigned int old_address,
+				             unsigned int use_new_t,
+				             unsigned int deprecate_old_t)
 {
 	unsigned int seqNum=0;
 
@@ -1253,6 +1255,8 @@ unsigned int KernelIPCProcess::changeAddress(unsigned int new_address,
 	message.setDestIpcProcessId(ipcProcessId);
 	message.new_address = new_address;
 	message.old_address = old_address;
+	message.use_new_timeout = use_new_t;
+	message.deprecate_old_timeout = deprecate_old_t;
 	message.setDestPortId(0);
 	message.setRequestMessage(true);
 

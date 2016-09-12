@@ -2037,6 +2037,8 @@ IPCPAddressChangeRequestMessage::IPCPAddressChangeRequestMessage()
 {
 	new_address = 0;
 	old_address = 0;
+	use_new_timeout = 0;
+	deprecate_old_timeout = 0;
 }
 
 IPCEvent* IPCPAddressChangeRequestMessage::toIPCEvent() {

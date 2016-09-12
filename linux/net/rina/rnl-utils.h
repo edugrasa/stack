@@ -596,6 +596,8 @@ enum ipcp_update_crypto_state_req_attrs_list {
 enum ipcp_address_change_req_attrs_list {
 	IACR_ATTR_NEW_ADDRESS = 1,
 	IACR_ATTR_OLD_ADDRESS,
+	IACR_ATTR_USE_NEW_TIMEOUT,
+	IACR_ATTR_DEPRECATE_OLD_TIMEOUT,
         __IACR_ATTR_MAX,
 };
 #define IACR_ATTR_MAX (__IACR_ATTR_MAX -1)
@@ -875,6 +877,8 @@ struct rnl_ipcp_update_crypto_state_req_msg_attrs {
 struct rnl_ipcp_address_change_req_msg_attrs {
 	address_t new_address;
 	address_t old_address;
+	uint_t use_new_timeout;
+	uint_t deprecate_old_timeout;
 };
 
 int rnl_parse_msg(struct genl_info * info,

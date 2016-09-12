@@ -354,6 +354,8 @@ rnl_ipcp_address_change_req_msg_attrs_create(void)
 
         tmp->new_address = 0;
         tmp->old_address = 0;
+        tmp->use_new_timeout = 0;
+        tmp->deprecate_old_timeout = 0;
 
         return tmp;
 }
@@ -2874,6 +2876,14 @@ rnl_parse_ipcp_address_change_req_msg(
         if (info->attrs[IACR_ATTR_OLD_ADDRESS])
                 msg_attrs->old_address =
                         nla_get_u32(info->attrs[IACR_ATTR_OLD_ADDRESS]);
+
+        if (info->attrs[IACR_ATTR_USE_NEW_TIMEOUT])
+                msg_attrs->use_new_timeout =
+                        nla_get_u32(info->attrs[IACR_ATTR_USE_NEW_TIMEOUT]);
+
+        if (info->attrs[IACR_ATTR_DEPRECATE_OLD_TIMEOUT])
+                msg_attrs->deprecate_old_timeout =
+                        nla_get_u32(info->attrs[IACR_ATTR_DEPRECATE_OLD_TIMEOUT]);
 
         return 0;
 }

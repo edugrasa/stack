@@ -3361,6 +3361,8 @@ int testAddressChangeRequestMessage() {
         IPCPAddressChangeRequestMessage message;
         message.new_address = 25;
         message.old_address = 16;
+        message.use_new_timeout = 3500;
+        message.deprecate_old_timeout = 10200;
 
         struct nl_msg* netlinkMessage = nlmsg_alloc();
         if (!netlinkMessage) {
@@ -3391,6 +3393,12 @@ int testAddressChangeRequestMessage() {
         	returnValue = -1;
         } else if (message.old_address != recoveredMessage->old_address) {
         	std::cout << "Error with old_address"<< std::endl;
+        	returnValue = -1;
+        } else if (message.use_new_timeout!= recoveredMessage->use_new_timeout) {
+        	std::cout << "Error with use_new_timeout" << std::endl;
+        	returnValue = -1;
+        } else if (message.deprecate_old_timeout != recoveredMessage->deprecate_old_timeout) {
+        	std::cout << "Error with deprecate_old_timeout"<< std::endl;
         	returnValue = -1;
         }
 

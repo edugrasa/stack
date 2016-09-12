@@ -5468,6 +5468,12 @@ int putIPCPAddressChangeRequestMessage(nl_msg* netlinkMessage,
 	NLA_PUT_U32(netlinkMessage,
 		    ACRM_ATTR_OLD_ADDRESS,
 		    object.old_address);
+	NLA_PUT_U32(netlinkMessage,
+		    ACRM_ATTR_USE_NEW_TIMEOUT,
+		    object.use_new_timeout);
+	NLA_PUT_U32(netlinkMessage,
+		    ACRM_ATTR_DEPRECATE_OLD_TIMEOUT,
+		    object.deprecate_old_timeout);
 
 	return 0;
 
@@ -9442,6 +9448,12 @@ IPCPAddressChangeRequestMessage * parseIPCPAddressChangeRequestMessage(
         attr_policy[ACRM_ATTR_OLD_ADDRESS].type = NLA_U32;
         attr_policy[ACRM_ATTR_OLD_ADDRESS].minlen = 4;
         attr_policy[ACRM_ATTR_OLD_ADDRESS].maxlen = 4;
+        attr_policy[ACRM_ATTR_USE_NEW_TIMEOUT].type = NLA_U32;
+        attr_policy[ACRM_ATTR_USE_NEW_TIMEOUT].minlen = 4;
+        attr_policy[ACRM_ATTR_USE_NEW_TIMEOUT].maxlen = 4;
+        attr_policy[ACRM_ATTR_DEPRECATE_OLD_TIMEOUT].type = NLA_U32;
+        attr_policy[ACRM_ATTR_DEPRECATE_OLD_TIMEOUT].minlen = 4;
+        attr_policy[ACRM_ATTR_DEPRECATE_OLD_TIMEOUT].maxlen = 4;
 	struct nlattr *attrs[ACRM_ATTR_MAX + 1];
 
 	int err = genlmsg_parse(hdr, sizeof(struct rinaHeader), attrs,
@@ -9463,6 +9475,16 @@ IPCPAddressChangeRequestMessage * parseIPCPAddressChangeRequestMessage(
 	if (attrs[ACRM_ATTR_OLD_ADDRESS]) {
 		result->old_address =
 				nla_get_u32(attrs[ACRM_ATTR_OLD_ADDRESS]);
+	}
+
+	if (attrs[ACRM_ATTR_USE_NEW_TIMEOUT]) {
+		result->use_new_timeout =
+				nla_get_u32(attrs[ACRM_ATTR_USE_NEW_TIMEOUT]);
+	}
+
+	if (attrs[ACRM_ATTR_DEPRECATE_OLD_TIMEOUT]) {
+		result->deprecate_old_timeout =
+				nla_get_u32(attrs[ACRM_ATTR_DEPRECATE_OLD_TIMEOUT]);
 	}
 
 	return result;

@@ -1435,6 +1435,8 @@ public:
 
 	unsigned int new_address;
 	unsigned int old_address;
+	unsigned int use_new_timeout;
+	unsigned int deprecate_old_timeout;
 };
 
 }

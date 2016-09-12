@@ -1048,9 +1048,14 @@ public:
         /// Request the kernel to update the state of cryptographic protection policies
         unsigned int updateCryptoState(const CryptoState& state);
 
-        /// Inform the kernel that the IPCP address has changed
+        /// Inform the kernel that the IPCP address has changed and trigger
+        /// the address change procedure: i) Accept PDUs with new address,
+        /// ii) start using it after a timeout and iii) deprecate old address
+        /// after another timeout
         unsigned int changeAddress(unsigned int new_address,
-        						   unsigned int old_address);
+        			   unsigned int old_address,
+				   unsigned int use_new_t,
+				   unsigned int deprecate_old_t);
 
         /**
          * Request the Kernel IPC Process to modify a policy-set-related
