@@ -542,6 +542,7 @@ int rmt_address_add(struct rmt *instance,
 	rmt_addr = rkzalloc(sizeof(*rmt_addr), GFP_KERNEL);
 	if (!rmt_addr)
 		return -1;
+	rmt_addr->address = address;
 
 	INIT_LIST_HEAD(&rmt_addr->list);
 	spin_lock_bh(&instance->lock);

@@ -65,6 +65,7 @@ private:
     	unsigned int min_address;
     	unsigned int max_address;
     	unsigned int current_address;
+    	bool first_time;
 };
 
 class NSMChangeAddressTimerTask : public rina::TimerTask {
@@ -100,6 +101,7 @@ AddressChangeNamespaceManagerPs::AddressChangeNamespaceManagerPs(INamespaceManag
 	min_address = 0;
 	max_address = 0;
 	current_address = 0;
+	first_time = true;
 }
 
 void AddressChangeNamespaceManagerPs::set_dif_configuration(const rina::DIFConfiguration& dif_configuration)
@@ -136,7 +138,7 @@ void AddressChangeNamespaceManagerPs::set_dif_configuration(const rina::DIFConfi
 
 	task = new NSMChangeAddressTimerTask(this);
 	delay = deprecate_old_timeout + use_new_timeout + (rand() % (change_period + 1));
-	LOG_IPCP_DBG("Will update address again in %l ms", delay);
+	LOG_IPCP_DBG("Will update address again in %ld ms", delay);
 	timer.scheduleTask(task, delay);
 }
 
@@ -147,18 +149,19 @@ void AddressChangeNamespaceManagerPs::change_address(void)
 	long delay = 0;
 
 	// 1 Compute new address
-	if (current_address + 1 > max_address)
+	if (current_address + 1 > max_address || first_time) {
 		new_address = min_address;
-	else
+		first_time = false;
+	} else {
 		new_address = current_address + 1;
+	}
 
 	//2 Deliver address changed event
 	LOG_IPCP_DBG("Computed new address: %u, disseminating the event!", new_address);
-	rina::AddressChangeEvent * event;
-	event->old_address = current_address;
-	event->new_address = new_address;
-	event->use_new_timeout = use_new_timeout;
-	event->deprecate_old_timeout = deprecate_old_timeout;
+	rina::AddressChangeEvent * event = new rina::AddressChangeEvent(new_address,
+									current_address,
+									use_new_timeout,
+									deprecate_old_timeout);
 	current_address = new_address;
 
 	nsm->ipcp->internal_event_manager_->deliverEvent(event);
@@ -166,7 +169,7 @@ void AddressChangeNamespaceManagerPs::change_address(void)
 	//3 Re-schedule timer
 	task = new NSMChangeAddressTimerTask(this);
 	delay = deprecate_old_timeout + use_new_timeout + (rand() % (change_period + 1));
-	LOG_IPCP_DBG("Will update address again in %l ms", delay);
+	LOG_IPCP_DBG("Will update address again in %ld ms", delay);
 	timer.scheduleTask(task, delay);
 }
 

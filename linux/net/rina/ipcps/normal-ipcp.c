@@ -1203,8 +1203,8 @@ int normal_address_change(struct ipcp_instance_data * data,
 			  uint_t use_new_address_t,
 			  uint_t deprecate_old_address_t)
 {
-	LOG_INFO("Need to change address from %u to %u. Not implemented yet!",
-		 new_address, old_address);
+	LOG_INFO("Need to change address from %u to %u",
+		 old_address, new_address);
 
 	if (!data) {
 		LOG_ERR("Bogus data passed");
