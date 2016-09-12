@@ -240,6 +240,8 @@ public:
 	virtual unsigned int getValidAddress(const std::string& ipcp_name,
 				const std::string& ipcp_instance) = 0;
 
+	virtual void set_dif_configuration(const rina::DIFConfiguration& dif_configuration) = 0;
+
 	virtual ~INamespaceManagerPs() {}
 };
 

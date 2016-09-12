@@ -20,6 +20,7 @@
 // MA  02110-1301  USA
 //
 
+#include <assert.h>
 #include <sstream>
 
 #define IPCP_MODULE "namespace-manager"
@@ -288,6 +289,10 @@ void NamespaceManager::set_dif_configuration(const rina::DIFConfiguration& dif_c
 	if (select_policy_set(std::string(), ps_name) != 0) {
 		throw rina::Exception("Cannot create namespace manager policy-set");
 	}
+
+	INamespaceManagerPs *nsmps = dynamic_cast<INamespaceManagerPs *> (ps);
+	assert(nsmps);
+	nsmps->set_dif_configuration(dif_configuration);
 }
 
 void NamespaceManager::populateRIB()
