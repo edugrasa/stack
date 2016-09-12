@@ -326,12 +326,11 @@ void NamespaceManager::eventHappened(rina::InternalEvent * event)
 void NamespaceManager::addressChange(rina::AddressChangeEvent * event)
 {
 	//Set timer to modify entries in DFT (first give enough time
-	//to routing to advertise new address, 3000 ms is enough for
-	//the current scope - demo)
+	//to routing to advertise new address)
 	AddressChangeTimerTask * task = new AddressChangeTimerTask(this,
 								   event->new_address,
 								   event->old_address);
-	timer.scheduleTask(task, 3000);
+	timer.scheduleTask(task, event->use_new_timeout);
 }
 
 void NamespaceManager::addressChangeUpdateDFT(unsigned int new_address,

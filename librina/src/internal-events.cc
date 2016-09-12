@@ -219,11 +219,15 @@ const std::string NeighborDeclaredDeadEvent::toString()
 
 /// The address of the IPCP has changed
 AddressChangeEvent::AddressChangeEvent(unsigned int new_addr,
-		   	   	       unsigned int old_addr):
+		   	   	       unsigned int old_addr,
+				       unsigned int use_new_t,
+				       unsigned int deprecate_old_t):
 		InternalEvent(InternalEvent::ADDRESS_CHANGE)
 {
 	new_address = new_addr;
 	old_address = old_addr;
+	use_new_timeout = use_new_t;
+	deprecate_old_timeout = deprecate_old_t;
 }
 
 const std::string AddressChangeEvent::toString()
@@ -231,6 +235,8 @@ const std::string AddressChangeEvent::toString()
 	std::stringstream ss;
 	ss<<"Event id: "<<type<<"; New address: "<< new_address
 			<<"; Old address: " << old_address << std::endl;
+	ss<<"Use new address timeout: " << use_new_timeout << " ms; "
+	  <<"Deprecate old address timeout: " << deprecate_old_timeout << " ms" << std::endl;
 	return ss.str();
 }
 

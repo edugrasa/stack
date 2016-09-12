@@ -112,6 +112,7 @@ public:
 	virtual void add_enrollment_state_machine(int portId, IEnrollmentStateMachine * stateMachine) = 0;
 	virtual void addressChangeTellNeighbors(unsigned int new_address,
 				        	unsigned int old_address) = 0;
+	virtual void update_neighbor_address(const rina::Neighbor& neighbor) = 0;
 };
 
 /// Policy set of the IPCP enrollment task

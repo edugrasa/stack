@@ -1722,7 +1722,7 @@ void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent 
 	//Schedule task to remove all objects with old address
 	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
 									 event->old_address);
-	timer_->scheduleTask(task, 10000);
+	timer_->scheduleTask(task, event->deprecate_old_timeout);
 }
 
 void LinkStateRoutingPolicy::expireOldAddress(unsigned int address)

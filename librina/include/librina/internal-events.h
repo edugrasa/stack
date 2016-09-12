@@ -179,11 +179,15 @@ public:
 class AddressChangeEvent: public InternalEvent {
 public:
 	AddressChangeEvent(unsigned int new_address,
-			   unsigned int old_address);
+			   unsigned int old_address,
+			   unsigned int use_new_timeout,
+			   unsigned int deprecate_old_timeout);
 	const std::string toString();
 
 	unsigned int new_address;
 	unsigned int old_address;
+	unsigned int use_new_timeout;
+	unsigned int deprecate_old_timeout;
 };
 
 }

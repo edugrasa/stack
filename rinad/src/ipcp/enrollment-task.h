@@ -72,8 +72,21 @@ public:
 		    rina::ser_obj_t &obj_reply,
 		    rina::cdap_rib::res_info_t& res);
 
+	//Allow a neighbor to update its address
+	void write(const rina::cdap_rib::con_handle_t &con,
+		   const std::string& fqn,
+		   const std::string& class_,
+		   const rina::cdap_rib::filt_info_t &filt,
+		   const int invoke_id,
+		   const rina::ser_obj_t &obj_req,
+		   rina::ser_obj_t &obj_reply,
+		   rina::cdap_rib::res_info_t& res);
+
 	const static std::string class_name;
 	const static std::string object_name;
+
+private:
+	rina::Lockable lock;
 };
 
 class WatchdogRIBObject;
@@ -284,6 +297,7 @@ public:
 	void add_enrollment_state_machine(int portId, IEnrollmentStateMachine * stateMachine);
 	void addressChangeTellNeighbors(unsigned int new_address,
 					unsigned int old_address);
+	void update_neighbor_address(const rina::Neighbor& neighbor);
 
 	/// The maximum time to wait between steps of the enrollment sequence (in ms)
 	int timeout_;

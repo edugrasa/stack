@@ -176,7 +176,9 @@ void IPCProcessImpl::addressChange(rina::AddressChangeEvent * event)
 {
 	set_address(event->new_address);
 	rina::kernelIPCProcess->changeAddress(event->new_address,
-					      event->old_address);
+					      event->old_address,
+					      event->use_new_timeout,
+					      event->deprecate_old_timeout);
 }
 
 unsigned short IPCProcessImpl::get_id() {
