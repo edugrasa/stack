@@ -275,6 +275,8 @@ static struct nla_policy iucsr_policy[IUCSR_ATTR_MAX + 1] = {
 static struct nla_policy iacr_policy[IACR_ATTR_MAX + 1] = {
 	[IACR_ATTR_NEW_ADDRESS] 	   = NLA_INIT_U32,
         [IACR_ATTR_OLD_ADDRESS] 	   = NLA_INIT_U32,
+	[IACR_ATTR_USE_NEW_TIMEOUT] 	   = NLA_INIT_U32,
+	[IACR_ATTR_DEPRECATE_OLD_TIMEOUT]  = NLA_INIT_U32,
 };
 
 #define DECL_NL_OP(COMMAND, POLICY) {           \

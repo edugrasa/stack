@@ -1228,7 +1228,6 @@ int normal_address_change(struct ipcp_instance_data * data,
 static void tf_use_naddress(void * data)
 {
         struct ipcp_instance_data * inst_data;
-        struct efcp_imap *	    efcp_instances;
 
         LOG_INFO("Running Use New Address Timer...");
         inst_data = (struct ipcp_instance_data *) data;
