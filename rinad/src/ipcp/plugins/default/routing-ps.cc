@@ -1386,9 +1386,13 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 					LOG_IPCP_DBG("Update the object %s with seq num %d",
 						      obj_to_up->get_objectname().c_str(),
 						      newIt->get_sequencenumber());
-					obj_to_up->set_age(0);
-					obj_to_up->set_sequencenumber(newIt->get_sequencenumber());
 					obj_to_up->set_avoidport(avoidPort);
+					if (newIt->get_age() > maximum_age) {
+						obj_to_up->deprecateObject(maximum_age);
+					} else {
+						obj_to_up->set_age(0);
+						obj_to_up->set_sequencenumber(newIt->get_sequencenumber());
+					}
 				}
 				obj_to_up->has_modified(true);
 				fsos->has_modified(true);
@@ -1600,6 +1604,8 @@ void LinkStateRoutingPolicy::subscribeToEvents()
 		subscribeToEvent(rina::InternalEvent::APP_CONNECTIVITY_TO_NEIGHBOR_LOST, this);
 	ipc_process_->internal_event_manager_->
 		subscribeToEvent(rina::InternalEvent::ADDRESS_CHANGE, this);
+	ipc_process_->internal_event_manager_->
+		subscribeToEvent(rina::InternalEvent::NEIGHBOR_ADDRESS_CHANGE, this);
 }
 
 void LinkStateRoutingPolicy::set_dif_configuration(
@@ -1738,6 +1744,8 @@ void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAdd
 
 	db_->getAllFSOs(all_fsos);
 
+	LOG_IPCP_INFO("Neighbor address changed: old address %d, new address %d",
+			event->old_address, event->new_address);
 	//Add LSOs to reflect the routes to the new address
 	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
 			it != all_fsos.end(); ++it) {
