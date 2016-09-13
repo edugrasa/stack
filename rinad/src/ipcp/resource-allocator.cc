@@ -330,7 +330,7 @@ int NMinusOneFlowManager::getManagementFlowToNeighbour(unsigned int address) {
 			ipc_process_->enrollment_task_->get_neighbor_pointers();
 	for (std::list<rina::Neighbor*>::const_iterator it = neighbors.begin();
 			it != neighbors.end(); ++it) {
-		if ((*it)->address_ == address) {
+		if ((*it)->address_ == address || (*it)->old_address_ == address) {
 			return (*it)->underlying_port_id_;
 		}
 	}

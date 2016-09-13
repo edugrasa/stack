@@ -1576,7 +1576,6 @@ LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 	rib_daemon_ = ipc_process_->rib_daemon_;
 	routing_algorithm_ = 0;
 	resiliency_algorithm_ = 0;
-	source_vertex_ = 0;
 	db_ = 0;
 
 	subscribeToEvents();
@@ -1616,7 +1615,6 @@ void LinkStateRoutingPolicy::set_dif_configuration(
         long delay;
 
         psconf = dif_configuration.routing_configuration_.policy_set_;
-        source_vertex_ = dif_configuration.get_address();
 
         try {
         	routing_alg = psconf.get_param_value_as_string(ROUTING_ALGORITHM);
@@ -1937,12 +1935,12 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 	std::list<rina::RoutingTableEntry *> rt =
 			routing_algorithm_->computeRoutingTable(graph,
 								flow_state_objects,
-								source_vertex_);
+								ipc_process_->get_address());
 
 	// Run the resiliency algorithm, if any, to extend the routing table
 	if (resiliency_algorithm_) {
 		resiliency_algorithm_->fortifyRoutingTable(graph,
-							   source_vertex_,
+							   ipc_process_->get_address(),
 							   rt);
 	}
 

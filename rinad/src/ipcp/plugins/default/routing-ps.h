@@ -608,7 +608,6 @@ private:
 	IPCPRIBDaemon * rib_daemon_;
 	IRoutingAlgorithm * routing_algorithm_;
 	IResiliencyAlgorithm * resiliency_algorithm_;
-	unsigned int source_vertex_;
 	unsigned int maximum_age_;
 	bool test_;
 	FlowStateManager *db_;

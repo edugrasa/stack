@@ -905,12 +905,13 @@ unsigned int ConsecutiveUnsignedIntegerGenerator::next(){
 
 /* CLASS NEIGHBOR */
 Neighbor::Neighbor() {
-	address_ = false;
+	address_ = 0;
 	average_rtt_in_ms_ = 0;
 	last_heard_from_time_in_ms_ = 0;
 	enrolled_ = false;
 	underlying_port_id_ = 0;
 	number_of_enrollment_attempts_ = 0;
+	old_address_ = 0;
 }
 
 Neighbor::Neighbor(const Neighbor &other)
@@ -924,6 +925,7 @@ Neighbor::Neighbor(const Neighbor &other)
 	name_ = other.name_;
 	supporting_dif_name_ = other.supporting_dif_name_;
 	supporting_difs_ = other.supporting_difs_;
+	old_address_ = other.old_address_;
 }
 
 Neighbor& Neighbor::operator=(const Neighbor &other)
@@ -989,6 +991,14 @@ unsigned int Neighbor::get_address() const {
 
 void Neighbor::set_address(unsigned int address) {
 	address_ = address;
+}
+
+unsigned int Neighbor::get_old_address() const {
+	return old_address_;
+}
+
+void Neighbor::set_old_address(unsigned int address) {
+	old_address_ = address;
 }
 
 unsigned int Neighbor::get_average_rtt_in_ms() const {

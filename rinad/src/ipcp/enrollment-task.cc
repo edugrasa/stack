@@ -694,17 +694,16 @@ void EnrollmentTask::addressChange(rina::AddressChangeEvent * event)
 void EnrollmentTask::update_neighbor_address(const rina::Neighbor& neighbor)
 {
 	rina::Neighbor * neigh = 0;
-	unsigned int old_address = 0;
 	rina::NeighborAddressChangeEvent * event = 0;
 
 	rina::ScopedLock g(lock_);
 
 	neigh = neighbors.find(neighbor.name_.getProcessNamePlusInstance());
 	if (neigh) {
-		old_address = neigh->address_;
+		neigh->old_address_ = neigh->address_;
 		neigh->address_ = neighbor.address_;
 		event = new rina::NeighborAddressChangeEvent(neigh->address_,
-							     old_address);
+							     neigh->old_address_);
 		ipcp->internal_event_manager_->deliverEvent(event);
 	} else {
 		LOG_IPCP_WARN("Could not change address of neighbor with name: %s",
