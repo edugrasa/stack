@@ -1128,15 +1128,18 @@ void FlowStateObjects::deprecateObjects(unsigned int neigh_address,
 }
 
 void FlowStateObjects::deprecateObjectsWithAddress(unsigned int address,
-						   unsigned int max_age)
+						   unsigned int max_age,
+						   bool neighbor)
 {
 	rina::ScopedLock g(lock);
 
 	std::map<std::string, FlowStateObject *>::iterator it;
 	for (it = objects.begin(); it != objects.end();
 			++it) {
-		if (it->second->get_neighboraddress() == address ||
-				it->second->get_address() == address) {
+		if (!neighbor && it->second->get_address() == address) {
+			it->second->deprecateObject(max_age);
+			modified_ = true;
+		} else if (neighbor && it->second->get_neighboraddress() == address) {
 			it->second->deprecateObject(max_age);
 			modified_ = true;
 		}
@@ -1458,9 +1461,10 @@ void FlowStateManager::deprecateObjectsNeighbor(unsigned int neigh_address,
 			       maximum_age);
 }
 
-void FlowStateManager::deprecteAllObjectsWithAddress(unsigned int address)
+void FlowStateManager::deprecateAllObjectsWithAddress(unsigned int address,
+						      bool neighbor)
 {
-	fsos->deprecateObjectsWithAddress(address, maximum_age);
+	fsos->deprecateObjectsWithAddress(address, maximum_age, neighbor);
 }
 
 bool FlowStateManager::tableUpdate() const
@@ -1536,15 +1540,17 @@ void UpdateAgeTimerTask::run()
 }
 
 ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
-						     unsigned int addr)
+						     unsigned int addr,
+						     bool neigh)
 {
 	lsr_policy_ = lsr_policy;
 	address = addr;
+	neighbor = neigh;
 }
 
 void ExpireOldAddressTimerTask::run()
 {
-	lsr_policy_->expireOldAddress(address);
+	lsr_policy_->expireOldAddress(address, neighbor);
 }
 
 // CLASS LinkStateRoutingPolicy
@@ -1697,13 +1703,16 @@ void LinkStateRoutingPolicy::eventHappened(rina::InternalEvent * event)
 		rina::AddressChangeEvent * addrEvent =
 			(rina::AddressChangeEvent *) event;
 		processAddressChangeEvent(addrEvent);
+	} else if (event->type == rina::InternalEvent::NEIGHBOR_ADDRESS_CHANGE) {
+		rina::NeighborAddressChangeEvent * addrEvent =
+			(rina::NeighborAddressChangeEvent *) event;
+		processNeighborAddressChangeEvent(addrEvent);
 	}
 }
 
 void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent * event)
 {
 	std::list<FlowStateObject> all_fsos;
-	std::list<FlowStateObject> updated_fsos;
 
 	db_->getAllFSOs(all_fsos);
 
@@ -1713,21 +1722,41 @@ void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent 
 		if (it->get_address() == event->old_address) {
 			db_->addNewFSO(event->new_address,
 				       it->get_neighboraddress(), 1, 0);
-		} else if (it->get_neighboraddress() == event->old_address) {
-			db_->addNewFSO(it->get_address(),
+		}
+	}
+
+	//Schedule task to remove all objects with old address
+	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
+									 event->old_address,
+									 false);
+	timer_->scheduleTask(task, event->deprecate_old_timeout);
+}
+
+void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event)
+{
+	std::list<FlowStateObject> all_fsos;
+
+	db_->getAllFSOs(all_fsos);
+
+	//Add LSOs to reflect the routes to the new address
+	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
+			it != all_fsos.end(); ++it) {
+		if (it->get_neighboraddress() == event->old_address) {
+			db_->addNewFSO(ipc_process_->get_address(),
 				       event->new_address, 1, 0);
 		}
 	}
 
 	//Schedule task to remove all objects with old address
 	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
-									 event->old_address);
-	timer_->scheduleTask(task, event->deprecate_old_timeout);
+									 event->old_address,
+									 true);
+	timer_->scheduleTask(task, 10000);
 }
 
-void LinkStateRoutingPolicy::expireOldAddress(unsigned int address)
+void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbor)
 {
-	db_->deprecteAllObjectsWithAddress(address);
+	db_->deprecateAllObjectsWithAddress(address, neighbor);
 }
 
 void LinkStateRoutingPolicy::processFlowDeallocatedEvent(

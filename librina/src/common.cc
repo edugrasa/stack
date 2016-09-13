@@ -174,8 +174,8 @@ bool ApplicationProcessNamingInformation::operator>=(
 	return !(*this < other);
 }
 
-std::string ApplicationProcessNamingInformation::
-getProcessNamePlusInstance(){
+const std::string ApplicationProcessNamingInformation::
+getProcessNamePlusInstance() const {
 	return processName + "-" + processInstance;
 }
 

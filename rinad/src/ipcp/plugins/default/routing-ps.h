@@ -372,7 +372,8 @@ public:
 	void deprecateObjects(unsigned int neigh_address, unsigned int address,
 			      unsigned int max_age);
 	void deprecateObjectsWithAddress(unsigned int address,
-					 unsigned int max_age);
+					 unsigned int max_age,
+					 bool neighbor);
 	FlowStateObject * getObject(const std::string& fqn);
 	void getModifiedFSOs(std::list<FlowStateObject *>& result);
 	void getAllFSOs(std::list<FlowStateObject>& result);
@@ -453,7 +454,8 @@ public:
 	void deprecateObject(std::string fqn);
 	void deprecateObjectsNeighbor(unsigned int neigh_address,
 	                              unsigned int address);
-	void deprecteAllObjectsWithAddress(unsigned int address);
+	void deprecateAllObjectsWithAddress(unsigned int address,
+					    bool neighbor);
 	std::map <int, std::list<FlowStateObject*> > prepareForPropagation
 	        (const std::list<rina::FlowInformation>& flows);
 	void incrementAge();
@@ -512,13 +514,15 @@ private:
 class ExpireOldAddressTimerTask : public rina::TimerTask {
 public:
 	ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
-				  unsigned int address);
+				  unsigned int address,
+				  bool neighbor);
 	~ExpireOldAddressTimerTask() throw(){};
 	void run();
 
 private:
 	LinkStateRoutingPolicy * lsr_policy_;
 	unsigned int address;
+	bool neighbor;
 };
 
 /// This routing policy uses a Flow State Database
@@ -595,7 +599,7 @@ public:
 	void routingTableUpdate();
 
 	/// Deprecate all LSOs containing the address passed to the method
-	void expireOldAddress(unsigned int address);
+	void expireOldAddress(unsigned int address, bool neighbor);
 
 	rina::Timer *timer_;
 private:
@@ -652,6 +656,8 @@ private:
 	void processNeighborLostEvent(rina::ConnectiviyToNeighborLostEvent * event);
 
 	void processAddressChangeEvent(rina::AddressChangeEvent * event);
+
+	void processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event);
 };
 
 /// Encoder of Flow State object

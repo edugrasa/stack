@@ -33,6 +33,7 @@ const std::string InternalEvent::APP_N_MINUS_1_FLOW_DEALLOCATED = "N_MINUS_1_FLO
 const std::string InternalEvent::APP_NEIGHBOR_DECLARED_DEAD = "NEIGHBOR_DECLARED_DEAD";
 const std::string InternalEvent::APP_NEIGHBOR_ADDED = "NEIGHBOR_ADDED";
 const std::string InternalEvent::ADDRESS_CHANGE = "ADDRESS_CHANGE";
+const std::string InternalEvent::NEIGHBOR_ADDRESS_CHANGE = "NEIGHBOR_ADDRESS_CHANGE";
 
 // Class SimpleInternalEventManager
 void SimpleInternalEventManager::set_application_process(ApplicationProcess * ap)
@@ -237,6 +238,23 @@ const std::string AddressChangeEvent::toString()
 			<<"; Old address: " << old_address << std::endl;
 	ss<<"Use new address timeout: " << use_new_timeout << " ms; "
 	  <<"Deprecate old address timeout: " << deprecate_old_timeout << " ms" << std::endl;
+	return ss.str();
+}
+
+/// The address of a neighbor IPCP has changed
+NeighborAddressChangeEvent::NeighborAddressChangeEvent(unsigned int new_addr,
+						      unsigned int old_addr):
+		InternalEvent(InternalEvent::NEIGHBOR_ADDRESS_CHANGE)
+{
+	new_address = new_addr;
+	old_address = old_addr;
+}
+
+const std::string NeighborAddressChangeEvent::toString()
+{
+	std::stringstream ss;
+	ss<<"Event id: "<<type<<"; New address: "<< new_address
+			<<"; Old address: " << old_address << std::endl;
 	return ss.str();
 }
 

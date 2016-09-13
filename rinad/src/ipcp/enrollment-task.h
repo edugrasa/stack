@@ -242,19 +242,6 @@ public:
 	std::string reason_;
 };
 
-class ETAddressChangeTimerTask: public rina::TimerTask {
-public:
-	ETAddressChangeTimerTask(IPCPEnrollmentTask * et,
-			         unsigned int naddr,
-			         unsigned int oaddr);
-	~ETAddressChangeTimerTask() throw() {};
-	void run();
-
-	IPCPEnrollmentTask * enrollment_task;
-	unsigned int new_address;
-	unsigned int old_address;
-};
-
 class EnrollmentTask: public IPCPEnrollmentTask, public rina::InternalEventListener {
 public:
 	static const std::string ENROLL_TIMEOUT_IN_MS;
@@ -295,8 +282,6 @@ public:
 	IEnrollmentStateMachine * getEnrollmentStateMachine(int portId, bool remove);
 	void deallocateFlow(int portId);
 	void add_enrollment_state_machine(int portId, IEnrollmentStateMachine * stateMachine);
-	void addressChangeTellNeighbors(unsigned int new_address,
-					unsigned int old_address);
 	void update_neighbor_address(const rina::Neighbor& neighbor);
 
 	/// The maximum time to wait between steps of the enrollment sequence (in ms)

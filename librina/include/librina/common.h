@@ -77,7 +77,7 @@ public:
 	bool operator<(const ApplicationProcessNamingInformation &other) const;
 	bool operator>=(const ApplicationProcessNamingInformation &other) const;
 
-	std::string getProcessNamePlusInstance();
+	const std::string getProcessNamePlusInstance() const;
 	const std::string getEncodedString() const;
 	const std::string toString() const;
 
