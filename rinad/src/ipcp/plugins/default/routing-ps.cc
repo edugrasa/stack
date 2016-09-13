@@ -967,7 +967,7 @@ void FlowStateObject::deprecateObject(unsigned int max_age)
 {
 	LOG_IPCP_DBG("Object %s deprecated", object_name_.c_str());
 	state_ = false;
-	age_ = max_age;
+	age_ = max_age + 1;
 	sequence_number_ = sequence_number_ + 1;
 	modified_ = true;
 }
@@ -1387,7 +1387,7 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 						      obj_to_up->get_objectname().c_str(),
 						      newIt->get_sequencenumber());
 					obj_to_up->set_avoidport(avoidPort);
-					if (newIt->get_age() > maximum_age) {
+					if (newIt->get_age() >= maximum_age) {
 						obj_to_up->deprecateObject(maximum_age);
 					} else {
 						obj_to_up->set_age(0);
