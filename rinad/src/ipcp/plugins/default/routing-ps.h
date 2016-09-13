@@ -285,7 +285,7 @@ public:
 	unsigned int get_age() const;
 	bool is_modified() const;
 	unsigned int get_avoidport() const;
-	bool is_beingerased() const;
+	bool is_deprecated() const;
 	std::string get_objectname() const;
 	void set_address(unsigned int address);
 	void set_neighboraddress(unsigned int neighbor_address);
@@ -296,7 +296,7 @@ public:
 	void set_object_name(const std::string& name);
 	void has_modified(bool modified);
 	void set_avoidport(unsigned int avoid_port);
-	void has_beingerased(bool being_erased);
+	void set_deprecated(bool deprecated);
 	const std::string getKey() const;
 private:
 	// The address of the IPC Process
@@ -316,7 +316,7 @@ private:
 	// Avoid port in the next propagation
 	int avoid_port_;
 	// The object is being erased
-	bool being_erased_;
+	bool deprecated;
 	// The name of the object in the RIB
 	std::string object_name_;
 };

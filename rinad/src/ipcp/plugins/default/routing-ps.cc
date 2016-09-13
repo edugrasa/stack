@@ -829,7 +829,7 @@ FlowStateObject::FlowStateObject()
 	age_ = 0;
 	modified_ = false;
 	avoid_port_ = 0;
-	being_erased_ = true;
+	deprecated = true;
 }
 FlowStateObject::FlowStateObject(unsigned int address,
 				 unsigned int neighbor_address,
@@ -849,7 +849,7 @@ FlowStateObject::FlowStateObject(unsigned int address,
 	   << getKey();
 	object_name_ = ss.str();
 	modified_ = true;
-	being_erased_ = false;
+	deprecated = false;
 	avoid_port_ = 0;
 }
 
@@ -914,9 +914,9 @@ unsigned int FlowStateObject::get_avoidport() const
 {
 	return avoid_port_;
 }
-bool FlowStateObject::is_beingerased() const
+bool FlowStateObject::is_deprecated() const
 {
-	return being_erased_;
+	return deprecated;
 }
 std::string FlowStateObject::get_objectname() const
 {
@@ -958,9 +958,9 @@ void FlowStateObject::set_avoidport(unsigned int avoid_port)
 {
 	avoid_port_ = avoid_port;
 }
-void FlowStateObject::has_beingerased(bool being_erased)
+void FlowStateObject::set_deprecated(bool dep)
 {
-	being_erased_ = being_erased;
+	deprecated = dep;
 }
 
 void FlowStateObject::deprecateObject(unsigned int max_age)
@@ -1217,9 +1217,9 @@ void FlowStateObjects::incrementAge(unsigned int max_age, rina::Timer* timer)
 		if (it->second->get_age() < UINT_MAX)
 			it->second->set_age(it->second->get_age() + 1);
 
-		if (it->second->get_age() >= max_age && !it->second->is_beingerased()) {
+		if (it->second->get_age() >= max_age && !it->second->is_deprecated()) {
 			LOG_IPCP_DBG("Object to erase age: %d", it->second->get_age());
-			it->second->has_beingerased(true);
+			it->second->set_deprecated(true);
 			KillFlowStateObjectTimerTask* ksttask =
 				new KillFlowStateObjectTimerTask(this, it->second->get_objectname());
 
@@ -1240,7 +1240,7 @@ void FlowStateObjects::updateObject(const std::string& fqn,
 	FlowStateObject* obj = it->second;
 	obj->set_age(0);
 	obj->set_avoidport(avoid_port);
-	obj->has_beingerased(false);
+	obj->set_deprecated(false);
 	obj->has_state(true);
 	obj->set_sequencenumber(1);
 	obj->has_modified(true);
@@ -1315,7 +1315,7 @@ void FlowStateRIBObjects::write(const rina::cdap_rib::con_handle_t &con,
 
 // CLASS FlowStateManager
 const int FlowStateManager::NO_AVOID_PORT = -1;
-const long FlowStateManager::WAIT_UNTIL_REMOVE_OBJECT = 23000;
+const long FlowStateManager::WAIT_UNTIL_REMOVE_OBJECT = 2300;
 
 FlowStateManager::FlowStateManager(rina::Timer *new_timer, unsigned int max_age)
 {
