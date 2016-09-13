@@ -877,8 +877,8 @@ struct rnl_ipcp_update_crypto_state_req_msg_attrs {
 struct rnl_ipcp_address_change_req_msg_attrs {
 	address_t new_address;
 	address_t old_address;
-	uint_t use_new_timeout;
-	uint_t deprecate_old_timeout;
+	timeout_t use_new_timeout;
+	timeout_t deprecate_old_timeout;
 };
 
 int rnl_parse_msg(struct genl_info * info,

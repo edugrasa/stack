@@ -68,7 +68,7 @@ typedef uint32_t      address_t;
 bool      is_address_ok(address_t address);
 address_t address_bad(void);
 
-typedef uint          timeout_t;
+typedef uint32_t      timeout_t;
 typedef uint          seq_num_t;
 
 typedef int qos_id_t;

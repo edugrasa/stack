@@ -694,6 +694,7 @@ void EnrollmentTask::addressChangeTellNeighbors(unsigned int new_address,
 	myself.address_ = new_address;
 	myself.name_.processName = ipcp->get_name();
 	myself.name_.processInstance = ipcp->get_instance();
+	myself.name_.entityName = "Management";
 	neighbors.push_back(myself);
 	encoder.encode(neighbors, obj_info.value_);
 	obj_info.class_ = NeighborsRIBObj::class_name;

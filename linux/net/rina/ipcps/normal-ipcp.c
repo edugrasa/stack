@@ -1200,8 +1200,8 @@ int normal_update_crypto_state(struct ipcp_instance_data * data,
 int normal_address_change(struct ipcp_instance_data * data,
 			  address_t new_address,
 			  address_t old_address,
-			  uint_t use_new_address_t,
-			  uint_t deprecate_old_address_t)
+			  timeout_t use_new_address_t,
+			  timeout_t deprecate_old_address_t)
 {
 	LOG_INFO("Need to change address from %u to %u",
 		 old_address, new_address);

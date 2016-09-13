@@ -9467,7 +9467,7 @@ IPCPAddressChangeRequestMessage * parseIPCPAddressChangeRequestMessage(
 	IPCPAddressChangeRequestMessage * result =
 			new IPCPAddressChangeRequestMessage();
 
-	if (attrs[ACRM_ATTR_OLD_ADDRESS]) {
+	if (attrs[ACRM_ATTR_NEW_ADDRESS]) {
 		result->new_address =
 				nla_get_u32(attrs[ACRM_ATTR_NEW_ADDRESS]);
 	}
