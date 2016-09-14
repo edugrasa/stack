@@ -188,6 +188,8 @@ public:
 	void remove_whatevercast_name(const std::string& name_key);
 	void addressChangeUpdateDFT(unsigned int new_address,
 				    unsigned int old_address);
+	void notify_neighbors_add(const std::list<rina::DirectoryForwardingTableEntry>& entries,
+			          std::list<int>& neighs_to_exclude);
 
 private:
 	rina::Lockable lock;

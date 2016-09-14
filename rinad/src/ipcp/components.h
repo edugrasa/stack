@@ -304,6 +304,9 @@ public:
 
 	virtual void addressChangeUpdateDFT(unsigned int new_address,
 				    	    unsigned int old_address) = 0;
+
+	virtual void notify_neighbors_add(const std::list<rina::DirectoryForwardingTableEntry>& entries,
+			          std::list<int>& neighs_to_exclude) = 0;
 };
 
 ///N-1 Flow Manager interface

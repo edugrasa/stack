@@ -214,7 +214,7 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 	//1 Decode list of names
 	encoder.decode(obj_req, entriesToCreateOrUpdate);
 
-	//2 Iterate list and create names
+	//2 Iterate list and create or update entries
 	std::list<rina::DirectoryForwardingTableEntry>::iterator it;
 	for (it = entriesToCreateOrUpdate.begin(); it != entriesToCreateOrUpdate.end(); ++it) {
 		entry = namespace_manager_->getDFTEntry(it->getKey());
@@ -224,16 +224,17 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 			entriesToCreate.push_back(*it);
 	}
 
-	if (entriesToCreate.size() == 0) {
-		LOG_IPCP_DBG("No DFT entries to create");
-		return;
-	}
-
 	std::list<int> exc_neighs;
 	exc_neighs.push_back(con_handle.port_id);
-	namespace_manager_->addDFTEntries(entriesToCreate,
-					  true,
-					  exc_neighs);
+
+	if (entriesToCreate.size() == 0) {
+		namespace_manager_->notify_neighbors_add(entriesToCreateOrUpdate,
+							 exc_neighs);
+	} else {
+		namespace_manager_->addDFTEntries(entriesToCreate,
+					  	  true,
+						  exc_neighs);
+	}
 }
 
 //Class AddressChangeTimerTask
@@ -430,6 +431,12 @@ void NamespaceManager::addDFTEntries(const std::list<rina::DirectoryForwardingTa
 			     entry->toString().c_str());
 	}
 
+	notify_neighbors_add(entries, neighs_to_exclude);
+}
+
+void NamespaceManager::notify_neighbors_add(const std::list<rina::DirectoryForwardingTableEntry>& entries,
+		          	  	    std::list<int>& neighs_to_exclude)
+{
 	std::vector<int> session_ids;
 	rina::cdap::getProvider()->get_session_manager()->getAllCDAPSessionIds(session_ids);
 	encoders::DFTEListEncoder encoder;
