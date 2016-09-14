@@ -161,6 +161,15 @@ const std::string Edge::toString() const
 
 Graph::Graph(const std::list<FlowStateObject>& flow_state_objects)
 {
+	set_flow_state_objects(flow_state_objects);
+}
+
+Graph::Graph()
+{
+}
+
+void Graph::set_flow_state_objects(const std::list<FlowStateObject>& flow_state_objects)
+{
 	flow_state_objects_ = flow_state_objects;
 	init_vertices();
 	init_edges();
@@ -320,11 +329,11 @@ void DijkstraAlgorithm::computeShortestDistances(const Graph& graph,
 	clear();
 }
 
-std::list<rina::RoutingTableEntry *> DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
-									    const std::list<FlowStateObject>& fsoList,
-									    unsigned int source_address)
+void DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
+			 	 	    const std::list<FlowStateObject>& fsoList,
+					    unsigned int source_address,
+					    std::list<rina::RoutingTableEntry *>& rt)
 {
-	std::list<rina::RoutingTableEntry *> result;
 	std::list<unsigned int>::const_iterator it;
 	unsigned int nextHop;
 	rina::RoutingTableEntry * entry;
@@ -340,7 +349,7 @@ std::list<rina::RoutingTableEntry *> DijkstraAlgorithm::computeRoutingTable(cons
 				entry->nextHopAddresses.push_back(rina::NHopAltList(nextHop));
 				entry->qosId = 0;
 				entry->cost = 1;
-				result.push_back(entry);
+				rt.push_back(entry);
 				LOG_IPCP_DBG("Added entry to routing table: destination %u, next-hop %u",
 						entry->address, nextHop);
 			}
@@ -348,8 +357,6 @@ std::list<rina::RoutingTableEntry *> DijkstraAlgorithm::computeRoutingTable(cons
 	}
 
 	clear();
-
-	return result;
 }
 
 void DijkstraAlgorithm::execute(const Graph& graph, unsigned int source)
@@ -502,11 +509,11 @@ void ECMPDijkstraAlgorithm::computeShortestDistances(const Graph& graph,
 	clear();
 }
 
-std::list<rina::RoutingTableEntry *> ECMPDijkstraAlgorithm::computeRoutingTable(const Graph& graph,
-										const std::list<FlowStateObject>& fsoList,
-										unsigned int source_address)
+void ECMPDijkstraAlgorithm::computeRoutingTable(const Graph& graph,
+			 	 	    	const std::list<FlowStateObject>& fsoList,
+						unsigned int source_address,
+						std::list<rina::RoutingTableEntry *>& rt)
 {
-	std::list<rina::RoutingTableEntry *> result;
 	std::list<unsigned int>::const_iterator it;
 	std::list<unsigned int>::const_iterator nextHopsIt;
 	std::list<unsigned int> nextHops;
@@ -517,10 +524,10 @@ std::list<rina::RoutingTableEntry *> ECMPDijkstraAlgorithm::computeRoutingTable(
 	execute(graph, source_address);
 
 	for(std::set<TreeNode *>::iterator it = t->chl.begin(); it != t->chl.end(); it++){
-		std::list<rina::RoutingTableEntry *>::iterator pos = findEntry(result,
+		std::list<rina::RoutingTableEntry *>::iterator pos = findEntry(rt,
 									       (*it)->addr);
 
-		if(pos != result.end()){
+		if(pos != rt.end()){
 			(*pos)->nextHopAddresses.push_back((*it)->addr);
 		}
 		else{
@@ -531,13 +538,11 @@ std::list<rina::RoutingTableEntry *> ECMPDijkstraAlgorithm::computeRoutingTable(
 			entry->nextHopAddresses.push_back((*it)->addr);
 			LOG_IPCP_DBG("Added entry to routing table: destination %u, next-hop %u",
                         entry->address, (*it)->addr);
-			result.push_back(entry);
+			rt.push_back(entry);
 		}
-		addRecursive(result, 1, (*it)->addr, *it);
+		addRecursive(rt, 1, (*it)->addr, *it);
 	}
 	clear();
-
-	return result;
 }
 
 void ECMPDijkstraAlgorithm::addRecursive(std::list<rina::RoutingTableEntry *> &table,
@@ -1915,33 +1920,69 @@ void LinkStateRoutingPolicy::updateAge()
 
 void LinkStateRoutingPolicy::routingTableUpdate()
 {
+	std::list<FlowStateObject> all_fsos;
+	std::list<FlowStateObject> g1_fsos;
+	std::list<FlowStateObject> g2_fsos;
+	std::list<rina::RoutingTableEntry *> rt;
+	Graph g1;
+	Graph g2;
+	std::list<FlowStateObject>::iterator it;
+	bool add = false;
+	unsigned int address = 0;
+	unsigned int old_address = 0;
+
 	rina::ScopedLock g(lock_);
 
 	if (!db_->tableUpdate()) {
 		return;
 	}
 
-	std::list<FlowStateObject> flow_state_objects;
-	db_->getAllFSOs(flow_state_objects);
 
-	// Build a graph out of the FSO database
-	Graph graph(flow_state_objects);
+	db_->getAllFSOs(all_fsos);
+	address = ipc_process_->get_address();
+	old_address = ipc_process_->get_old_address();
+	if (old_address != 0) {
+		//Remove fsos with old_address to avoid routes to myself
+		for (it=all_fsos.begin(); it != all_fsos.end(); ++it) {
+			if (it->get_address() != old_address && it->get_neighboraddress() != old_address)
+				g1_fsos.push_back(*it);
+		}
 
-	// Invoke the routing algorithm to compute the routing table
-	// Main arguments are the graph and the source vertex.
-	// The list of FSOs may be useless, but has been left there
-	// for the moment (and it is currently unused by the Dijkstra
-	// algorithm).
-	std::list<rina::RoutingTableEntry *> rt =
-			routing_algorithm_->computeRoutingTable(graph,
-								flow_state_objects,
-								ipc_process_->get_address());
+		g1.set_flow_state_objects(g1_fsos);
+		routing_algorithm_->computeRoutingTable(g1,
+							g1_fsos,
+							address,
+							rt);
+
+		//Remove fsos with address to avoid routes to myself
+		for (it=all_fsos.begin(); it != all_fsos.end(); ++it) {
+			if (it->get_address() != address && it->get_neighboraddress() != address)
+				g2_fsos.push_back(*it);
+		}
+
+		g2.set_flow_state_objects(g2_fsos);
+		routing_algorithm_->computeRoutingTable(g2,
+							g2_fsos,
+							old_address,
+							rt);
+	} else {
+		g1.set_flow_state_objects(all_fsos);
+		routing_algorithm_->computeRoutingTable(g1,
+							all_fsos,
+							address,
+							rt);
+	}
 
 	// Run the resiliency algorithm, if any, to extend the routing table
 	if (resiliency_algorithm_) {
-		resiliency_algorithm_->fortifyRoutingTable(graph,
+		resiliency_algorithm_->fortifyRoutingTable(g1,
 							   ipc_process_->get_address(),
 							   rt);
+		if (old_address != 0) {
+			resiliency_algorithm_->fortifyRoutingTable(g2,
+								   ipc_process_->get_old_address(),
+								   rt);
+		}
 	}
 
 	assert(ipc_process_->resource_allocator_->pduft_gen_ps);

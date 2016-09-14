@@ -101,6 +101,7 @@ class FlowStateObject;
 class Graph {
 public:
 	Graph(const std::list<FlowStateObject>& flow_state_objects);
+	Graph();
 	~Graph();
 
 	std::list<Edge *> edges_;
@@ -110,7 +111,7 @@ public:
 	bool contains_edge(unsigned int address1, unsigned int address2) const;
 
 	void print() const;
-
+	void set_flow_state_objects(const std::list<FlowStateObject>& flow_state_objects);
 private:
 	struct CheckedVertex {
 		unsigned int address_;
@@ -148,9 +149,10 @@ public:
 
 	//Compute the next hop for the node identified by source_address
 	//towards all the other nodes
-	virtual std::list<rina::RoutingTableEntry *> computeRoutingTable(const Graph& graph,
-									 const std::list<FlowStateObject>& fsoList,
-									 unsigned int source_address) = 0;
+	virtual void computeRoutingTable(const Graph& graph,
+				 	 const std::list<FlowStateObject>& fsoList,
+					 unsigned int source_address,
+					 std::list<rina::RoutingTableEntry *>& rt) = 0;
 
 	//Compute the distance of the shortest path between the node identified
 	//by source_address and all the other nodes
@@ -174,9 +176,10 @@ public:
 class DijkstraAlgorithm : public IRoutingAlgorithm {
 public:
 	DijkstraAlgorithm();
-	std::list<rina::RoutingTableEntry *> computeRoutingTable(const Graph& graph,
-								 const std::list<FlowStateObject>& fsoList,
-								 unsigned int source_address);
+	void computeRoutingTable(const Graph& graph,
+				 const std::list<FlowStateObject>& fsoList,
+				 unsigned int source_address,
+				 std::list<rina::RoutingTableEntry *>& rt);
 	void computeShortestDistances(const Graph& graph,
 				      unsigned int source_address,
 				      std::map<unsigned int, int>& distances);
@@ -203,9 +206,10 @@ private:
 class ECMPDijkstraAlgorithm : public IRoutingAlgorithm {
 public:
 	ECMPDijkstraAlgorithm();
-	std::list<rina::RoutingTableEntry *> computeRoutingTable(const Graph& graph,
-		    	    	    	    	    	     	 const std::list<FlowStateObject>& fsoList,
-		    	    	    	    	    	     	 unsigned int source_address);
+	void computeRoutingTable(const Graph& graph,
+				 const std::list<FlowStateObject>& fsoList,
+				 unsigned int source_address,
+				 std::list<rina::RoutingTableEntry *>& rt);
 	void computeShortestDistances(const Graph& graph,
 				      unsigned int source_address,
 				      std::map<unsigned int, int>& distances);
@@ -241,7 +245,8 @@ public:
 	// Starting from the routing table computed by the routing algorithm,
 	// try to add (for each target nod) different next hops in addition to the
 	// existing ones, in order to improve resilency of the source node
-	virtual void fortifyRoutingTable(const Graph& graph, unsigned int source_address,
+	virtual void fortifyRoutingTable(const Graph& graph,
+					 unsigned int source_address,
 					 std::list<rina::RoutingTableEntry *>& rt) = 0;
 
 protected:
@@ -251,11 +256,13 @@ protected:
 class LoopFreeAlternateAlgorithm : public IResiliencyAlgorithm {
 public:
 	LoopFreeAlternateAlgorithm(IRoutingAlgorithm& ra);
-	void fortifyRoutingTable(const Graph& graph, unsigned int source_address,
-					 std::list<rina::RoutingTableEntry *>& rt);
+	void fortifyRoutingTable(const Graph& graph,
+				 unsigned int source_address,
+				 std::list<rina::RoutingTableEntry *>& rt);
 private:
 	void extendRoutingTableEntry(std::list<rina::RoutingTableEntry *>& rt,
-				     unsigned int target_address, unsigned int nexthop);
+				     unsigned int target_address,
+				     unsigned int nexthop);
 };
 
 /// The object exchanged between IPC Processes to disseminate the state of

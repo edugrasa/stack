@@ -75,8 +75,11 @@ void KernelSyncTrigger::finish()
 
 //Class IPCProcessImpl
 IPCProcessImpl::IPCProcessImpl(const rina::ApplicationProcessNamingInformation& nm,
-		unsigned short id, unsigned int ipc_manager_port,
-		std::string log_level, std::string log_file) : IPCProcess(nm.processName, nm.processInstance)
+			       unsigned short id,
+			       unsigned int ipc_manager_port,
+			       std::string log_level,
+			       std::string log_file) :
+					       IPCProcess(nm.processName, nm.processInstance)
 {
         try {
                 std::stringstream ss;
@@ -95,6 +98,7 @@ IPCProcessImpl::IPCProcessImpl(const rina::ApplicationProcessNamingInformation& 
         state = NOT_INITIALIZED;
         lock_ = new rina::Lockable();
         kernel_sync = NULL;
+        old_address = 0;
 
         // Initialize application entities
         delimiter_ = 0; //TODO initialize Delimiter once it is implemented
@@ -174,7 +178,15 @@ void IPCProcessImpl::eventHappened(rina::InternalEvent * event)
 
 void IPCProcessImpl::addressChange(rina::AddressChangeEvent * event)
 {
-	set_address(event->new_address);
+	ExpireOldIPCPAddressTimerTask * task = 0;
+
+	rina::ScopedLock g(*lock_);
+	old_address = event->old_address;
+	dif_information_.dif_configuration_.address_ = event->new_address;
+
+	task = new ExpireOldIPCPAddressTimerTask(this);
+	timer.scheduleTask(task, event->deprecate_old_timeout);
+
 	rina::kernelIPCProcess->changeAddress(event->new_address,
 					      event->old_address,
 					      event->use_new_timeout,
@@ -221,6 +233,18 @@ unsigned int IPCProcessImpl::get_address() const {
 void IPCProcessImpl::set_address(unsigned int address) {
 	rina::ScopedLock g(*lock_);
 	dif_information_.dif_configuration_.address_ = address;
+}
+
+void IPCProcessImpl::expire_old_address()
+{
+	rina::ScopedLock g(*lock_);
+	old_address = 0;
+}
+
+unsigned int IPCProcessImpl::get_old_address()
+{
+	rina::ScopedLock g(*lock_);
+	return old_address;
 }
 
 void IPCProcessImpl::processAssignToDIFRequestEvent(const rina::AssignToDIFRequestEvent& event) {
@@ -825,6 +849,17 @@ void IPCProcessImpl::sync_with_kernel()
 {
 	flow_allocator_->sync_with_kernel();
 	resource_allocator_->sync_with_kernel();
+}
+
+//Class ExpireOldAddressTimerTask
+ExpireOldIPCPAddressTimerTask::ExpireOldIPCPAddressTimerTask(IPCProcessImpl * ipc_process)
+{
+	ipcp = ipc_process;
+}
+
+void ExpireOldIPCPAddressTimerTask::run()
+{
+	ipcp->expire_old_address();
 }
 
 //Class IPCPFactory
