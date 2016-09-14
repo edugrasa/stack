@@ -1538,6 +1538,32 @@ int rmt_receive(struct rmt *rmt,
 
 	/* pdu is not for me */
 	if (pdu_is_addressed_to_me(rmt, dst_addr)) {
+		/* pdu is for me */
+		switch (pdu_type) {
+		case PDU_TYPE_MGMT:
+			return process_mgmt_pdu_ni(rmt, from, pdu);
+
+		case PDU_TYPE_CACK:
+		case PDU_TYPE_SACK:
+		case PDU_TYPE_NACK:
+		case PDU_TYPE_FC:
+		case PDU_TYPE_ACK:
+		case PDU_TYPE_ACK_AND_FC:
+		case PDU_TYPE_DT:
+			/*
+			 * (FUTURE)
+			 *
+			 * enqueue PDU in pdus_dt[dest-addr, qos-id]
+			 * don't process it now ...
+			 */
+			return process_dt_pdu(rmt, from, pdu);
+
+		default:
+			LOG_ERR("Unknown PDU type %d", pdu_type);
+			pdu_destroy(pdu);
+			return -1;
+		}
+	} else {
 		if (!dst_addr)
 			return process_mgmt_pdu_ni(rmt, from, pdu);
 		else {
@@ -1551,32 +1577,6 @@ int rmt_receive(struct rmt *rmt,
 			 * forwarding */
 			return rmt_send(rmt,
 					pdu);
-		}
-	} else {
-		/* pdu is for me */
-		switch (pdu_type) {
-		case PDU_TYPE_MGMT:
-			return process_mgmt_pdu_ni(rmt, from, pdu);
-
-		case PDU_TYPE_CACK:
-		case PDU_TYPE_SACK:
-		case PDU_TYPE_NACK:
-		case PDU_TYPE_FC:
-		case PDU_TYPE_ACK:
-		case PDU_TYPE_ACK_AND_FC:
-		case PDU_TYPE_DT:
-		/*
-		 * (FUTURE)
-		 *
-		 * enqueue PDU in pdus_dt[dest-addr, qos-id]
-		 * don't process it now ...
-		 */
-			return process_dt_pdu(rmt, from, pdu);
-
-		default:
-			LOG_ERR("Unknown PDU type %d", pdu_type);
-			pdu_destroy(pdu);
-			return -1;
 		}
 	}
 }
