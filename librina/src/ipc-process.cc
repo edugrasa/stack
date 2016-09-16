@@ -1396,7 +1396,7 @@ ReadManagementSDUResult KernelIPCProcess::readManagementSDU(void * sdu,
 // CLASS DirectoryForwardingTableEntry
 DirectoryForwardingTableEntry::DirectoryForwardingTableEntry() {
 	address_ = 0;
-	timestamp_ = 0;
+	seqnum_ = 0;
 }
 
 ApplicationProcessNamingInformation DirectoryForwardingTableEntry::get_ap_naming_info() const {
@@ -1416,12 +1416,12 @@ void DirectoryForwardingTableEntry::set_address(unsigned int address) {
 	address_ = address;
 }
 
-long DirectoryForwardingTableEntry::get_timestamp() const {
-	return timestamp_;
+long DirectoryForwardingTableEntry::get_seqnum() const {
+	return seqnum_;
 }
 
-void DirectoryForwardingTableEntry::set_timestamp(long timestamp) {
-	timestamp_ = timestamp;
+void DirectoryForwardingTableEntry::set_seqnum(unsigned int seqnum) {
+	seqnum_ = seqnum;
 }
 
 const std::string DirectoryForwardingTableEntry::getKey() const{
@@ -1443,7 +1443,7 @@ std::string DirectoryForwardingTableEntry::toString() {
     std::stringstream ss;
     ss << this->get_ap_naming_info().toString() << std::endl;
 	ss << "IPC Process address: " << address_ << std::endl;
-	ss << "Timestamp: " << timestamp_ << std::endl;
+	ss << "Sequence number: " << seqnum_ << std::endl;
 
 	return ss.str();
 }

@@ -119,7 +119,7 @@ const std::string DFTEntryRIBObj::get_displayable_value() const
 	std::stringstream ss;
 	ss << "App name: " << entry->ap_naming_info_.getEncodedString();
 	ss << "; Address: " << entry->address_;
-	ss << "; Timestamp: " << entry->timestamp_;
+	ss << "; Sequence number: " << entry->seqnum_;
 
 	return ss.str();
 }
@@ -208,6 +208,7 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 {
 	std::list<rina::DirectoryForwardingTableEntry> entriesToCreateOrUpdate;
 	std::list<rina::DirectoryForwardingTableEntry> entriesToCreate;
+	std::list<rina::DirectoryForwardingTableEntry> entriesToUpdate;
 	rina::DirectoryForwardingTableEntry * entry;
 	encoders::DFTEListEncoder encoder;
 
@@ -218,22 +219,27 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 	std::list<rina::DirectoryForwardingTableEntry>::iterator it;
 	for (it = entriesToCreateOrUpdate.begin(); it != entriesToCreateOrUpdate.end(); ++it) {
 		entry = namespace_manager_->getDFTEntry(it->getKey());
-		if (entry)
-			entry->address_ = it->address_;
-		else
+		if (!entry) {
 			entriesToCreate.push_back(*it);
+		} else if (it->seqnum_ > entry->seqnum_){
+			entry->address_ = it->address_;
+			entry->seqnum_ = it->seqnum_;
+			entriesToUpdate.push_back(*it);
+		}
 	}
 
 	std::list<int> exc_neighs;
 	exc_neighs.push_back(con_handle.port_id);
 
-	if (entriesToCreate.size() == 0) {
-		namespace_manager_->notify_neighbors_add(entriesToCreateOrUpdate,
-							 exc_neighs);
-	} else {
+	if (entriesToCreate.size() > 0) {
 		namespace_manager_->addDFTEntries(entriesToCreate,
-					  	  true,
+						  true,
 						  exc_neighs);
+	}
+
+	if (entriesToUpdate.size() > 0) {
+		namespace_manager_->notify_neighbors_add(entriesToUpdate,
+							 exc_neighs);
 	}
 }
 
@@ -354,6 +360,7 @@ void NamespaceManager::addressChangeUpdateDFT(unsigned int new_address,
 		entry = dft_.find(*it);
 		if (entry->address_ == old_address) {
 			entry->address_ = new_address;
+			entry->seqnum_ = entry->seqnum_ + 1;
 			mod_entries.push_back(*entry);
 		}
 	}
@@ -412,7 +419,7 @@ void NamespaceManager::addDFTEntries(const std::list<rina::DirectoryForwardingTa
 		entry = new rina::DirectoryForwardingTableEntry();
 		entry->address_ = it->address_;
 		entry->ap_naming_info_ = it->ap_naming_info_;
-		entry->timestamp_ = it->timestamp_;
+		entry->seqnum_ = it->seqnum_;
 
 		try {
 			std::stringstream ss;

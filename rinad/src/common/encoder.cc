@@ -199,7 +199,7 @@ void toGPB(const rina::DirectoryForwardingTableEntry &obj,
                         helpers::get_applicationProcessNamingInfo_t(
                                         obj.ap_naming_info_));
         gpb.set_ipcprocesssynonym(obj.address_);
-        gpb.set_timestamp(obj.timestamp_);
+        gpb.set_seqnum(obj.seqnum_);
 }
 
 void toModel(const rina::messages::directoryForwardingTableEntry_t &gpb,
@@ -210,7 +210,7 @@ void toModel(const rina::messages::directoryForwardingTableEntry_t &gpb,
                                                          app_name);
         des_obj.ap_naming_info_ = app_name;
         des_obj.address_ = gpb.ipcprocesssynonym();
-        des_obj.timestamp_ = gpb.timestamp();
+        des_obj.seqnum_ = gpb.seqnum();
 }
 }  // namespace dft_helpers
 

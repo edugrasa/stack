@@ -1134,8 +1134,8 @@ public:
 	void set_ap_naming_info(const ApplicationProcessNamingInformation& ap_naming_info);
 	unsigned int get_address() const;
 	void set_address(unsigned int address);
-	long get_timestamp() const;
-	void set_timestamp(long timestamp);
+	long get_seqnum() const;
+	void set_seqnum(unsigned int seqnum);
 #endif
 
 	/**
@@ -1151,8 +1151,8 @@ public:
 	/// The address of the IPC process it is currently attached to
 	unsigned int address_;
 
-	/// A timestamp for this entry
-	long timestamp_;
+	/// A sequence number for this entry
+	unsigned int seqnum_;
 };
 
 /// Defines a whatevercast name (or a name of a set of names).
