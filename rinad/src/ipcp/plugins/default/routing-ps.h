@@ -101,6 +101,7 @@ class FlowStateObject;
 class Graph {
 public:
 	Graph(const std::list<FlowStateObject>& flow_state_objects);
+	Graph();
 	~Graph();
 
 	std::list<Edge *> edges_;
@@ -110,7 +111,7 @@ public:
 	bool contains_edge(unsigned int address1, unsigned int address2) const;
 
 	void print() const;
-
+	void set_flow_state_objects(const std::list<FlowStateObject>& flow_state_objects);
 private:
 	struct CheckedVertex {
 		unsigned int address_;
@@ -148,9 +149,10 @@ public:
 
 	//Compute the next hop for the node identified by source_address
 	//towards all the other nodes
-	virtual std::list<rina::RoutingTableEntry *> computeRoutingTable(const Graph& graph,
-									 const std::list<FlowStateObject>& fsoList,
-									 unsigned int source_address) = 0;
+	virtual void computeRoutingTable(const Graph& graph,
+				 	 const std::list<FlowStateObject>& fsoList,
+					 unsigned int source_address,
+					 std::list<rina::RoutingTableEntry *>& rt) = 0;
 
 	//Compute the distance of the shortest path between the node identified
 	//by source_address and all the other nodes
@@ -174,9 +176,10 @@ public:
 class DijkstraAlgorithm : public IRoutingAlgorithm {
 public:
 	DijkstraAlgorithm();
-	std::list<rina::RoutingTableEntry *> computeRoutingTable(const Graph& graph,
-								 const std::list<FlowStateObject>& fsoList,
-								 unsigned int source_address);
+	void computeRoutingTable(const Graph& graph,
+				 const std::list<FlowStateObject>& fsoList,
+				 unsigned int source_address,
+				 std::list<rina::RoutingTableEntry *>& rt);
 	void computeShortestDistances(const Graph& graph,
 				      unsigned int source_address,
 				      std::map<unsigned int, int>& distances);
@@ -203,9 +206,10 @@ private:
 class ECMPDijkstraAlgorithm : public IRoutingAlgorithm {
 public:
 	ECMPDijkstraAlgorithm();
-	std::list<rina::RoutingTableEntry *> computeRoutingTable(const Graph& graph,
-		    	    	    	    	    	     	 const std::list<FlowStateObject>& fsoList,
-		    	    	    	    	    	     	 unsigned int source_address);
+	void computeRoutingTable(const Graph& graph,
+				 const std::list<FlowStateObject>& fsoList,
+				 unsigned int source_address,
+				 std::list<rina::RoutingTableEntry *>& rt);
 	void computeShortestDistances(const Graph& graph,
 				      unsigned int source_address,
 				      std::map<unsigned int, int>& distances);
@@ -241,7 +245,8 @@ public:
 	// Starting from the routing table computed by the routing algorithm,
 	// try to add (for each target nod) different next hops in addition to the
 	// existing ones, in order to improve resilency of the source node
-	virtual void fortifyRoutingTable(const Graph& graph, unsigned int source_address,
+	virtual void fortifyRoutingTable(const Graph& graph,
+					 unsigned int source_address,
 					 std::list<rina::RoutingTableEntry *>& rt) = 0;
 
 protected:
@@ -251,11 +256,13 @@ protected:
 class LoopFreeAlternateAlgorithm : public IResiliencyAlgorithm {
 public:
 	LoopFreeAlternateAlgorithm(IRoutingAlgorithm& ra);
-	void fortifyRoutingTable(const Graph& graph, unsigned int source_address,
-					 std::list<rina::RoutingTableEntry *>& rt);
+	void fortifyRoutingTable(const Graph& graph,
+				 unsigned int source_address,
+				 std::list<rina::RoutingTableEntry *>& rt);
 private:
 	void extendRoutingTableEntry(std::list<rina::RoutingTableEntry *>& rt,
-				     unsigned int target_address, unsigned int nexthop);
+				     unsigned int target_address,
+				     unsigned int nexthop);
 };
 
 /// The object exchanged between IPC Processes to disseminate the state of
@@ -285,7 +292,7 @@ public:
 	unsigned int get_age() const;
 	bool is_modified() const;
 	unsigned int get_avoidport() const;
-	bool is_beingerased() const;
+	bool is_deprecated() const;
 	std::string get_objectname() const;
 	void set_address(unsigned int address);
 	void set_neighboraddress(unsigned int neighbor_address);
@@ -296,7 +303,7 @@ public:
 	void set_object_name(const std::string& name);
 	void has_modified(bool modified);
 	void set_avoidport(unsigned int avoid_port);
-	void has_beingerased(bool being_erased);
+	void set_deprecated(bool deprecated);
 	const std::string getKey() const;
 private:
 	// The address of the IPC Process
@@ -316,7 +323,7 @@ private:
 	// Avoid port in the next propagation
 	int avoid_port_;
 	// The object is being erased
-	bool being_erased_;
+	bool deprecated;
 	// The name of the object in the RIB
 	std::string object_name_;
 };
@@ -371,6 +378,9 @@ public:
 			     unsigned int max_age);
 	void deprecateObjects(unsigned int neigh_address, unsigned int address,
 			      unsigned int max_age);
+	void deprecateObjectsWithAddress(unsigned int address,
+					 unsigned int max_age,
+					 bool neighbor);
 	FlowStateObject * getObject(const std::string& fqn);
 	void getModifiedFSOs(std::list<FlowStateObject *>& result);
 	void getAllFSOs(std::list<FlowStateObject>& result);
@@ -451,6 +461,8 @@ public:
 	void deprecateObject(std::string fqn);
 	void deprecateObjectsNeighbor(unsigned int neigh_address,
 	                              unsigned int address);
+	void deprecateAllObjectsWithAddress(unsigned int address,
+					    bool neighbor);
 	std::map <int, std::list<FlowStateObject*> > prepareForPropagation
 	        (const std::list<rina::FlowInformation>& flows);
 	void incrementAge();
@@ -504,6 +516,20 @@ public:
 private:
     LinkStateRoutingPolicy * lsr_policy_;
     long delay_;
+};
+
+class ExpireOldAddressTimerTask : public rina::TimerTask {
+public:
+	ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
+				  unsigned int address,
+				  bool neighbor);
+	~ExpireOldAddressTimerTask() throw(){};
+	void run();
+
+private:
+	LinkStateRoutingPolicy * lsr_policy_;
+	unsigned int address;
+	bool neighbor;
 };
 
 /// This routing policy uses a Flow State Database
@@ -578,6 +604,10 @@ public:
 	/// the Òalgorithm to compute the forwarding tableÓ section. If the FSDB is not marked as
 	/// ÒmodifiedÓ nothing happens.
 	void routingTableUpdate();
+
+	/// Deprecate all LSOs containing the address passed to the method
+	void expireOldAddress(unsigned int address, bool neighbor);
+
 	rina::Timer *timer_;
 private:
 	static const int MAXIMUM_BUFFER_SIZE;
@@ -585,7 +615,6 @@ private:
 	IPCPRIBDaemon * rib_daemon_;
 	IRoutingAlgorithm * routing_algorithm_;
 	IResiliencyAlgorithm * resiliency_algorithm_;
-	unsigned int source_vertex_;
 	unsigned int maximum_age_;
 	bool test_;
 	FlowStateManager *db_;
@@ -631,6 +660,10 @@ private:
 	void processNeighborAddedEvent(rina::NeighborAddedEvent * event);
 
 	void processNeighborLostEvent(rina::ConnectiviyToNeighborLostEvent * event);
+
+	void processAddressChangeEvent(rina::AddressChangeEvent * event);
+
+	void processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event);
 };
 
 /// Encoder of Flow State object

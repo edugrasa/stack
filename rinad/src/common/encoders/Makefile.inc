@@ -692,5 +692,3 @@ EXTRA_DIST +=                                   \
         WhatevercastNameMessage.proto
 
 protoSOURCES += WhatevercastNameMessage.pb.cc WhatevercastNameMessage.pb.h
-
-

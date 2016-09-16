@@ -1240,6 +1240,38 @@ unsigned int KernelIPCProcess::updateCryptoState(const CryptoState& state)
         return seqNum;
 }
 
+unsigned int KernelIPCProcess::changeAddress(unsigned int new_address,
+					     unsigned int old_address,
+				             unsigned int use_new_t,
+				             unsigned int deprecate_old_t)
+{
+	unsigned int seqNum=0;
+
+#if STUB_API
+	//Do nothing
+#else
+	IPCPAddressChangeRequestMessage message;
+	message.setSourceIpcProcessId(ipcProcessId);
+	message.setDestIpcProcessId(ipcProcessId);
+	message.new_address = new_address;
+	message.old_address = old_address;
+	message.use_new_timeout = use_new_t;
+	message.deprecate_old_timeout = deprecate_old_t;
+	message.setDestPortId(0);
+	message.setRequestMessage(true);
+
+	try {
+		rinaManager->sendMessage(&message, true);
+	} catch (NetlinkException &e) {
+		throw Exception(e.what());
+	}
+
+	seqNum = message.getSequenceNumber();
+#endif
+
+return seqNum;
+}
+
 unsigned int KernelIPCProcess::setPolicySetParam(
                                 const std::string& path,
                                 const std::string& name,

@@ -324,6 +324,9 @@ struct ipcp_instance_ops {
 
         int (* pff_flush)(struct ipcp_instance_data * data);
 
+        int (* pff_modify)(struct ipcp_instance_data * data,
+                           struct list_head * entries);
+
         int (* query_rib)(struct ipcp_instance_data * data,
                           struct list_head *          entries,
                           const string_t *            object_class,
@@ -349,6 +352,16 @@ struct ipcp_instance_ops {
 
         int (* enable_write)(struct ipcp_instance_data * data, port_id_t id);
         int (* disable_write)(struct ipcp_instance_data * data, port_id_t id);
+
+        /*
+         * Start using new address after first timeout, deprecate old
+         * address after second timeout
+         */
+        int (* address_change)(struct ipcp_instance_data * data,
+        		       address_t new_address,
+			       address_t old_address,
+			       timeout_t use_new_address_t,
+			       timeout_t deprecate_old_address_t);
 };
 
 /* FIXME: Should work on struct ipcp_instance, not on ipcp_instance_ops */

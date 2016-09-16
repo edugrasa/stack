@@ -217,6 +217,7 @@ public:
         }
         ;
 };
+
 }  //namespace encoders
 }  //namespace rinad
 

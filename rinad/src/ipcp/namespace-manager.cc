@@ -20,6 +20,7 @@
 // MA  02110-1301  USA
 //
 
+#include <assert.h>
 #include <sstream>
 
 #define IPCP_MODULE "namespace-manager"
@@ -213,7 +214,7 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 	//1 Decode list of names
 	encoder.decode(obj_req, entriesToCreateOrUpdate);
 
-	//2 Iterate list and create names
+	//2 Iterate list and create or update entries
 	std::list<rina::DirectoryForwardingTableEntry>::iterator it;
 	for (it = entriesToCreateOrUpdate.begin(); it != entriesToCreateOrUpdate.end(); ++it) {
 		entry = namespace_manager_->getDFTEntry(it->getKey());
@@ -223,22 +224,40 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 			entriesToCreate.push_back(*it);
 	}
 
-	if (entriesToCreate.size() == 0) {
-		LOG_IPCP_DBG("No DFT entries to create");
-		return;
-	}
-
 	std::list<int> exc_neighs;
 	exc_neighs.push_back(con_handle.port_id);
-	namespace_manager_->addDFTEntries(entriesToCreate,
-					  true,
-					  exc_neighs);
+
+	if (entriesToCreate.size() == 0) {
+		namespace_manager_->notify_neighbors_add(entriesToCreateOrUpdate,
+							 exc_neighs);
+	} else {
+		namespace_manager_->addDFTEntries(entriesToCreate,
+					  	  true,
+						  exc_neighs);
+	}
+}
+
+//Class AddressChangeTimerTask
+AddressChangeTimerTask::AddressChangeTimerTask(INamespaceManager * nsm,
+		       	       	       	       unsigned int naddr,
+					       unsigned int oaddr)
+{
+	namespace_manager = nsm;
+	new_address = naddr;
+	old_address = oaddr;
+}
+
+void AddressChangeTimerTask::run()
+{
+	namespace_manager->addressChangeUpdateDFT(new_address,
+						  old_address);
 }
 
 //Class Namespace Manager
 NamespaceManager::NamespaceManager() : INamespaceManager()
 {
 	rib_daemon_ = 0;
+	event_manager_ = 0;
 }
 
 NamespaceManager::~NamespaceManager()
@@ -260,6 +279,8 @@ void NamespaceManager::set_application_process(rina::ApplicationProcess * ap)
 	}
 
 	rib_daemon_ = ipcp->rib_daemon_;
+	event_manager_ = ipcp->internal_event_manager_;
+	subscribeToEvents();
 	populateRIB();
 }
 
@@ -269,6 +290,10 @@ void NamespaceManager::set_dif_configuration(const rina::DIFConfiguration& dif_c
 	if (select_policy_set(std::string(), ps_name) != 0) {
 		throw rina::Exception("Cannot create namespace manager policy-set");
 	}
+
+	INamespaceManagerPs *nsmps = dynamic_cast<INamespaceManagerPs *> (ps);
+	assert(nsmps);
+	nsmps->set_dif_configuration(dif_configuration);
 }
 
 void NamespaceManager::populateRIB()
@@ -286,6 +311,77 @@ void NamespaceManager::populateRIB()
 		rib_daemon_->addObjRIB(DFTRIBObj::object_name, &tmp);
 	} catch (rina::Exception &e) {
 		LOG_ERR("Problems adding object to the RIB : %s", e.what());
+	}
+}
+
+void NamespaceManager::subscribeToEvents()
+{
+	event_manager_->subscribeToEvent(rina::InternalEvent::ADDRESS_CHANGE,
+					 this);
+}
+
+void NamespaceManager::eventHappened(rina::InternalEvent * event)
+{
+	if (event->type == rina::InternalEvent::ADDRESS_CHANGE){
+		rina::AddressChangeEvent * addrEvent =
+				(rina::AddressChangeEvent *) event;
+		addressChange(addrEvent);
+	}
+}
+
+void NamespaceManager::addressChange(rina::AddressChangeEvent * event)
+{
+	//Set timer to modify entries in DFT (first give enough time
+	//to routing to advertise new address)
+	AddressChangeTimerTask * task = new AddressChangeTimerTask(this,
+								   event->new_address,
+								   event->old_address);
+	timer.scheduleTask(task, event->use_new_timeout);
+}
+
+void NamespaceManager::addressChangeUpdateDFT(unsigned int new_address,
+			    	    	      unsigned int old_address)
+{
+	std::list<rina::DirectoryForwardingTableEntry> mod_entries;
+	rina::DirectoryForwardingTableEntry * entry;
+	std::vector<int> session_ids;
+
+	rina::ScopedLock g(lock);
+
+	std::list<std::string> keys = dft_.getKeys();
+	for(std::list<std::string>::iterator it = keys.begin();
+			it != keys.end(); ++it) {
+		entry = dft_.find(*it);
+		if (entry->address_ == old_address) {
+			entry->address_ = new_address;
+			mod_entries.push_back(*entry);
+		}
+	}
+
+	if (mod_entries.size() == 0)
+		return;
+
+	rina::cdap::getProvider()->get_session_manager()->getAllCDAPSessionIds(session_ids);
+	encoders::DFTEListEncoder encoder;
+	rina::cdap_rib::obj_info_t obj;
+	obj.class_ = DFTRIBObj::class_name;
+	obj.name_ = DFTRIBObj::object_name;
+	encoder.encode(mod_entries, obj.value_);
+	rina::cdap_rib::flags_t flags;
+	rina::cdap_rib::filt_info_t filt;
+	rina::cdap_rib::con_handle_t con;
+	for (int i = 0; i < session_ids.size(); i++) {
+		try {
+			con.port_id = session_ids[i];
+			ipcp->rib_daemon_->getProxy()->remote_create(con,
+								     obj,
+								     flags,
+								     filt,
+								     NULL);
+		} catch (rina::Exception &e) {
+			LOG_WARN("Problems sending create CDAP message: %s",
+					e.what());
+		}
 	}
 }
 
@@ -335,6 +431,12 @@ void NamespaceManager::addDFTEntries(const std::list<rina::DirectoryForwardingTa
 			     entry->toString().c_str());
 	}
 
+	notify_neighbors_add(entries, neighs_to_exclude);
+}
+
+void NamespaceManager::notify_neighbors_add(const std::list<rina::DirectoryForwardingTableEntry>& entries,
+		          	  	    std::list<int>& neighs_to_exclude)
+{
 	std::vector<int> session_ids;
 	rina::cdap::getProvider()->get_session_manager()->getAllCDAPSessionIds(session_ids);
 	encoders::DFTEListEncoder encoder;
@@ -358,7 +460,7 @@ void NamespaceManager::addDFTEntries(const std::list<rina::DirectoryForwardingTa
 								     filt,
 								     NULL);
 		} catch (rina::Exception &e) {
-			LOG_WARN("Problems sending delete CDAP message: %s",
+			LOG_WARN("Problems sending create CDAP message: %s",
 					e.what());
 		}
 	}

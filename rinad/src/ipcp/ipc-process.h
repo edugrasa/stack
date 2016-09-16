@@ -50,10 +50,11 @@ private:
 	rina::Sleep sleep;
 };
 
-class IPCProcessImpl: public IPCProcess {
+class IPCProcessImpl: public IPCProcess, public rina::InternalEventListener {
 	friend class IPCPFactory;
 public:
         ~IPCProcessImpl();
+        void eventHappened(rina::InternalEvent * event);
         unsigned short get_id();
         const std::list<rina::Neighbor> get_neighbors() const;
         const IPCProcessOperationalState& get_operational_state() const;
@@ -62,6 +63,8 @@ public:
         void set_dif_information(const rina::DIFInformation& dif_information);
         unsigned int get_address() const;
         void set_address(unsigned int address);
+        void expire_old_address(void);
+	unsigned int get_old_address();
         unsigned int getAdressByname(const rina::ApplicationProcessNamingInformation& name);
         void processAssignToDIFRequestEvent(const rina::AssignToDIFRequestEvent& event);
         void processAssignToDIFResponseEvent(const rina::AssignToDIFResponseEvent& event);
@@ -98,6 +101,8 @@ private:
                         unsigned short id, unsigned int ipc_manager_port,
                         std::string log_level, std::string log_file);
 
+        void subscribeToEvents();
+        void addressChange(rina::AddressChangeEvent * event);
         IPCProcessOperationalState state;
 		std::map<unsigned int, rina::AssignToDIFRequestEvent> pending_events_;
         std::map<unsigned int, rina::SetPolicySetParamRequestEvent>
@@ -107,6 +112,18 @@ private:
         rina::Lockable * lock_;
 	rina::DIFInformation dif_information_;
 	KernelSyncTrigger * kernel_sync;
+	unsigned int old_address;
+	rina::Timer timer;
+};
+
+class ExpireOldIPCPAddressTimerTask: public rina::TimerTask {
+public:
+	ExpireOldIPCPAddressTimerTask(IPCProcessImpl * ipcp);
+	~ExpireOldIPCPAddressTimerTask() throw() {};
+	void run();
+
+private:
+	IPCProcessImpl * ipcp;
 };
 
 class IPCPFactory{
