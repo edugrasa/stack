@@ -385,6 +385,7 @@ public:
 	void getModifiedFSOs(std::list<FlowStateObject *>& result);
 	void getAllFSOs(std::list<FlowStateObject>& result);
 	void incrementAge(unsigned int max_age,
+			  unsigned long wait_until_remove,
 			  rina::Timer* timer);
 	void updateObject(const std::string& fqn, 
 			  unsigned int avoid_port);
@@ -447,9 +448,9 @@ private:
 class FlowStateManager {
 public:
 	static const int NO_AVOID_PORT;
-	static const long WAIT_UNTIL_REMOVE_OBJECT;
 	FlowStateManager(rina::Timer* new_timer,
-			unsigned int max_age);
+			unsigned int max_age,
+			unsigned long wait_until_remove);
 	~FlowStateManager();
 	//void setAvoidPort(int avoidPort);
 	/// add a FlowStateObject
@@ -476,9 +477,11 @@ public:
 
 	// accessors
 	void set_maximum_age(unsigned int max_age);
+	void set_wait_until_remove(unsigned long wait_until_remove);
 private:
 	FlowStateObjects* fsos;
 	unsigned int maximum_age;
+	unsigned long wait_until_remove_obj;
 	rina::Timer* timer;
 };
 
@@ -558,6 +561,8 @@ public:
 	static const std::string WAIT_UNTIL_PDUFT_COMPUTATION;
 	static const std::string WAIT_UNTIL_FSODB_PROPAGATION;
 	static const std::string WAIT_UNTIL_AGE_INCREMENT;
+	static const std::string WAIT_UNTIL_REMOVE_OBJECT;
+	static const std::string WAIT_UNTIL_DEPRECATE_OLD_ADDRESS;
 	static const std::string ROUTING_ALGORITHM;
 
         static const int PULSES_UNTIL_FSO_EXPIRATION_DEFAULT = 100000;
@@ -566,6 +571,8 @@ public:
         static const int WAIT_UNTIL_PDUFT_COMPUTATION_DEFAULT = 103;
         static const int WAIT_UNTIL_FSODB_PROPAGATION_DEFAULT = 101;
         static const int WAIT_UNTIL_AGE_INCREMENT_DEFAULT = 997;
+        static const long WAIT_UNTIL_REMOVE_OBJECT_DEFAULT = 2300;
+        static const long WAIT_UNTIL_DEPRECATE_OLD_ADDRESS_DEFAULT = 10000;
         static const std::string DIJKSTRA_ALG;
         static const std::string ECMP_DIJKSTRA_ALG;
 
@@ -615,7 +622,7 @@ private:
 	IPCPRIBDaemon * rib_daemon_;
 	IRoutingAlgorithm * routing_algorithm_;
 	IResiliencyAlgorithm * resiliency_algorithm_;
-	unsigned int maximum_age_;
+	unsigned long wait_until_deprecate_address_;
 	bool test_;
 	FlowStateManager *db_;
 	rina::Lockable lock_;

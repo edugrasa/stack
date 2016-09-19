@@ -1212,7 +1212,9 @@ void FlowStateObjects::getAllFSOs(std::list<FlowStateObject>& result)
 	}
 }
 
-void FlowStateObjects::incrementAge(unsigned int max_age, rina::Timer* timer)
+void FlowStateObjects::incrementAge(unsigned int max_age,
+			            unsigned long wait_until_remove,
+				    rina::Timer* timer)
 {
 	rina::ScopedLock g(lock);
 
@@ -1228,7 +1230,7 @@ void FlowStateObjects::incrementAge(unsigned int max_age, rina::Timer* timer)
 			KillFlowStateObjectTimerTask* ksttask =
 				new KillFlowStateObjectTimerTask(this, it->second->get_objectname());
 
-			timer->scheduleTask(ksttask, FlowStateManager::WAIT_UNTIL_REMOVE_OBJECT);
+			timer->scheduleTask(ksttask, wait_until_remove);
 		}
 	}
 }
@@ -1320,11 +1322,13 @@ void FlowStateRIBObjects::write(const rina::cdap_rib::con_handle_t &con,
 
 // CLASS FlowStateManager
 const int FlowStateManager::NO_AVOID_PORT = -1;
-const long FlowStateManager::WAIT_UNTIL_REMOVE_OBJECT = 2300;
 
-FlowStateManager::FlowStateManager(rina::Timer *new_timer, unsigned int max_age)
+FlowStateManager::FlowStateManager(rina::Timer *new_timer,
+				   unsigned int max_age,
+				   unsigned long wait_until_rm)
 {
 	maximum_age = max_age;
+	wait_until_remove_obj = wait_until_rm;
 	fsos = new FlowStateObjects(this);
 	timer = new_timer;
 }
@@ -1356,7 +1360,9 @@ void FlowStateManager::deprecateObject(std::string fqn)
 
 void FlowStateManager::incrementAge()
 {
-	fsos->incrementAge(maximum_age, timer);
+	fsos->incrementAge(maximum_age,
+			   wait_until_remove_obj,
+			   timer);
 }
 
 void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObjects,
@@ -1456,6 +1462,11 @@ void FlowStateManager::encodeAllFSOs(rina::ser_obj_t& obj) const
 void FlowStateManager::set_maximum_age(unsigned int max_age)
 {
 	maximum_age = max_age;
+}
+
+void FlowStateManager::set_wait_until_remove(unsigned long wait_until_remove)
+{
+	wait_until_remove_obj = wait_until_remove;
 }
 
 void FlowStateManager::getAllFSOs(std::list<FlowStateObject>& list) const
@@ -1569,6 +1580,8 @@ const std::string LinkStateRoutingPolicy::WAIT_UNTIL_ERROR = "waitUntilError";
 const std::string LinkStateRoutingPolicy::WAIT_UNTIL_PDUFT_COMPUTATION = "waitUntilPDUFTComputation";
 const std::string LinkStateRoutingPolicy::WAIT_UNTIL_FSODB_PROPAGATION = "waitUntilFSODBPropagation";
 const std::string LinkStateRoutingPolicy::WAIT_UNTIL_AGE_INCREMENT = "waitUntilAgeIncrement";
+const std::string LinkStateRoutingPolicy::WAIT_UNTIL_REMOVE_OBJECT = "waitUntilRemoveObject";
+const std::string LinkStateRoutingPolicy::WAIT_UNTIL_DEPRECATE_OLD_ADDRESS = "waitUntilDeprecateAddress";
 const std::string LinkStateRoutingPolicy::ROUTING_ALGORITHM = "routingAlgorithm";
 const int LinkStateRoutingPolicy::MAXIMUM_BUFFER_SIZE = 4096;
 const std::string LinkStateRoutingPolicy::DIJKSTRA_ALG = "Dijkstra";
@@ -1582,10 +1595,11 @@ LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 	routing_algorithm_ = 0;
 	resiliency_algorithm_ = 0;
 	db_ = 0;
+	wait_until_deprecate_address_ = 0;
 
 	subscribeToEvents();
 	timer_ = new rina::Timer();
-	db_ = new FlowStateManager(timer_, UINT_MAX);
+	db_ = new FlowStateManager(timer_, UINT_MAX, 0);
 }
 
 LinkStateRoutingPolicy::~LinkStateRoutingPolicy()
@@ -1648,6 +1662,18 @@ void LinkStateRoutingPolicy::set_dif_configuration(
 			db_->set_maximum_age(psconf.get_param_value_as_int(OBJECT_MAXIMUM_AGE));
 		} catch (rina::Exception &e) {
 			db_->set_maximum_age(PULSES_UNTIL_FSO_EXPIRATION_DEFAULT);
+		}
+
+		try {
+			db_->set_wait_until_remove(psconf.get_param_value_as_long(WAIT_UNTIL_REMOVE_OBJECT));
+		} catch (rina::Exception &e) {
+			db_->set_wait_until_remove(WAIT_UNTIL_REMOVE_OBJECT_DEFAULT);
+		}
+
+		try {
+			wait_until_deprecate_address_ = psconf.get_param_value_as_long(WAIT_UNTIL_DEPRECATE_OLD_ADDRESS);
+		} catch (rina::Exception &e) {
+			wait_until_deprecate_address_ = WAIT_UNTIL_DEPRECATE_OLD_ADDRESS_DEFAULT;
 		}
 
 		// Task to compute PDUFT
@@ -1762,7 +1788,7 @@ void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAdd
 	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
 									 event->old_address,
 									 true);
-	timer_->scheduleTask(task, 10000);
+	timer_->scheduleTask(task, wait_until_deprecate_address_);
 }
 
 void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbor)
