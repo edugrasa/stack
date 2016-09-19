@@ -155,7 +155,7 @@ void AddressChangeNamespaceManagerPs::change_address(void)
 	}
 
 	//2 Deliver address changed event
-	LOG_IPCP_DBG("Computed new address: %u, disseminating the event!", new_address);
+	LOG_IPCP_INFO("Computed new address: %u, disseminating the event!", new_address);
 	rina::AddressChangeEvent * event = new rina::AddressChangeEvent(new_address,
 									current_address,
 									use_new_timeout,

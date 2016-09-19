@@ -704,6 +704,10 @@ void EnrollmentTask::update_neighbor_address(const rina::Neighbor& neighbor)
 		neigh->address_ = neighbor.address_;
 		event = new rina::NeighborAddressChangeEvent(neigh->address_,
 							     neigh->old_address_);
+		LOG_IPCP_INFO("Neighbor %s address changed from %d to %d",
+			       neighbor.name_.getProcessNamePlusInstance(),
+			       neigh->address_,
+			       neigh->old_address_);
 		ipcp->internal_event_manager_->deliverEvent(event);
 	} else {
 		LOG_IPCP_WARN("Could not change address of neighbor with name: %s",

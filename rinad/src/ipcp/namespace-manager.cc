@@ -224,6 +224,9 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 		} else if (it->seqnum_ > entry->seqnum_){
 			entry->address_ = it->address_;
 			entry->seqnum_ = it->seqnum_;
+			LOG_IPCP_INFO("Updated application %s IPCP address to %d",
+				       it->getKey(),
+				       it->address_);
 			entriesToUpdate.push_back(*it);
 		}
 	}
