@@ -1951,51 +1951,43 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 	std::list<rina::RoutingTableEntry *> duplicates;
 	std::list<rina::RoutingTableEntry *>::iterator it;
 	std::list<rina::RoutingTableEntry *>::iterator jt;
-	std::list<rina::NHopAltList>::iterator kt;
-	std::list<rina::NHopAltList>::iterator lt;
 	rina::RoutingTableEntry * current = 0;
 	rina::RoutingTableEntry * candidate = 0;
-	bool contains = false;
-	bool equal = false;
 
+	LOG_IPCP_INFO("Current rt size: %d", rt.size());
 	for(it = rt.begin(); it != rt.end(); ++it) {
 		current = *it;
 		for (jt = duplicates.begin(); jt != duplicates.end(); ++jt) {
 			candidate = *jt;
-			equal = false;
 			if (current->address == candidate->address &&
 			    current->qosId == candidate->qosId &&
 			    current->cost == candidate->cost &&
-			    current->nextHopAddresses.size() == candidate->nextHopAddresses.size()) {
-				equal = true;
-				for (kt = current->nextHopAddresses.begin();
-						kt != current->nextHopAddresses.end(); ++kt) {
-					contains = false;
-					for (lt = candidate->nextHopAddresses.begin();
-							lt != candidate->nextHopAddresses.end(); ++lt) {
-						if (kt->alts.front() == lt->alts.front()) {
-							contains = true;
-							break;
-						}
-					}
-
-					if (!contains) {
-						equal = false;
-						break;
-					}
-				}
-
-				if  (equal)
-					duplicates.push_back(*jt);
+			    current->nextHopAddresses.size() == candidate->nextHopAddresses.size() &&
+			    current->nextHopAddresses.front().alts.front() == candidate->nextHopAddresses.front().alts.front()) {
+				duplicates.push_back(*jt);
 			}
 		}
 
 	}
 
+	LOG_IPCP_INFO("Found %d duplicates", duplicates.size());
 	for (it=duplicates.begin(); it!= duplicates.end(); ++it) {
-		rt.remove(*it);
-		delete *it;
+		current = *it;
+		for (jt=rt.begin(); jt != rt.end(); ++jt) {
+			candidate = *jt;
+			if (current->address == candidate->address &&
+			    current->qosId == candidate->qosId &&
+			    current->cost == candidate->cost &&
+			    current->nextHopAddresses.size() == candidate->nextHopAddresses.size() &&
+			    current->nextHopAddresses.front().alts.front() == candidate->nextHopAddresses.front().alts.front()) {
+				rt.erase(jt);
+				delete *jt;
+				break;
+			}
+		}
 	}
+
+	LOG_IPCP_INFO("Current rt size: %d", rt.size());
 }
 
 void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>& rt)
