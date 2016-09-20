@@ -1706,7 +1706,6 @@ void LinkStateRoutingPolicy::set_dif_configuration(
 				delay);
 		timer_->scheduleTask(pfttask, delay);
 	}
-
 }
 
 const std::list<rina::FlowInformation>& LinkStateRoutingPolicy::get_allocated_flows() const
@@ -1995,6 +1994,23 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 	for (it=duplicates.begin(); it!= duplicates.end(); ++it) {
 		rt.remove(*it);
 		delete *it;
+	}
+
+	std::stringstream ss;
+	for(it = rt.begin(); it != rt.end(); ++it) {
+		ss.str(std::string());
+		ss.clear();
+		current = *it;
+		ss << "Dest. address: " << current->address
+		   << "; QoS-id: " << current->qosId
+		   << "; Cost: " << current->cost
+		   << "; Next hop addresses: ";
+		for (kt = current->nextHopAddresses.begin();
+				kt != current->nextHopAddresses.end(); ++kt) {
+			ss << kt->alts.front() << "; ";
+		}
+
+		LOG_IPCP_INFO("%s", ss.str().c_str());
 	}
 }
 

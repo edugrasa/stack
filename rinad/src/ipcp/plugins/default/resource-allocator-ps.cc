@@ -76,7 +76,7 @@ void DefaultPDUFTGeneratorPs::routingTableUpdated(const std::list<rina::RoutingT
 				if (port_id == -1)
 					continue;
 
-				LOG_IPCP_INFO("NHOP %u --> N-1 port-id: %u",
+				LOG_IPCP_DBG("NHOP %u --> N-1 port-id: %u",
 					     *kt, port_id);
 				portid_altlist.add_alt(port_id);
 			}
