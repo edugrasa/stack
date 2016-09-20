@@ -2661,7 +2661,7 @@ std::string RIBDaemon::getObjClass(const rib_handle_t& handle,
 }
 
 void RIBDaemon::removeObjRIB(const rib_handle_t& handle,
-							const int64_t inst_id){
+			     const int64_t inst_id){
 	//Mutual exclusion
 	ReadScopedLock rlock(rwlock);
 

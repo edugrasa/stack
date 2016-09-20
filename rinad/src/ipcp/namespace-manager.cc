@@ -225,7 +225,7 @@ void DFTRIBObj::create(const rina::cdap_rib::con_handle_t &con_handle,
 			entry->address_ = it->address_;
 			entry->seqnum_ = it->seqnum_;
 			LOG_IPCP_INFO("Updated application %s IPCP address to %d",
-				       it->getKey(),
+				       it->getKey().c_str(),
 				       it->address_);
 			entriesToUpdate.push_back(*it);
 		}
