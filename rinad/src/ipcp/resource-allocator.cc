@@ -604,6 +604,7 @@ void ResourceAllocator::set_pduft_entries(const std::list<rina::PDUForwardingTab
 	std::stringstream ss;
 
 	//1 Scrap the old entries
+	LOG_IPCP_INFO("Removing old PDU FT entries");
 	std::list<std::string> obj_names = pduft.getKeys();
 	std::list<std::string>::iterator it;
 	for (it = obj_names.begin(); it != obj_names.end(); ++it) {
@@ -625,6 +626,7 @@ void ResourceAllocator::set_pduft_entries(const std::list<rina::PDUForwardingTab
 	}
 
 	//2 Add the new entries
+	LOG_IPCP_INFO("Adding %d PDU FT entries", pduft_entries.size());
 	std::list<rina::PDUForwardingTableEntry*>::const_iterator it2;
 	for (it2 = pduft_entries.begin();
 			it2 != pduft_entries.end(); ++it2) {
@@ -660,6 +662,7 @@ void ResourceAllocator::set_rt_entries(const std::list<rina::RoutingTableEntry*>
 	std::stringstream ss;
 
 	//1 Scrap the old entries
+	LOG_IPCP_INFO("Removing old NHop table entries");
 	std::list<std::string> obj_names = rt.getKeys();
 	std::list<std::string>::iterator it;
 	for (it = obj_names.begin(); it != obj_names.end(); ++it) {
@@ -681,6 +684,7 @@ void ResourceAllocator::set_rt_entries(const std::list<rina::RoutingTableEntry*>
 	}
 
 	//2 Add the new entries
+	LOG_IPCP_INFO("Adding %d NHop table entries", rt_entries.size());
 	std::list<rina::RoutingTableEntry*>::const_iterator it2;
 	for (it2 = rt_entries.begin();
 			it2 != rt_entries.end(); ++it2) {
