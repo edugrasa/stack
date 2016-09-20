@@ -1369,7 +1369,9 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 				     unsigned int avoidPort,
 				     unsigned int address)
 {
-	LOG_IPCP_DBG("Update objects from DB launched");
+	LOG_IPCP_INFO("Received Flow State object WRITE message via N-1 port-id %d (%d objects)",
+		       avoidPort,
+		       newObjects.size());
 
 	for (std::list<FlowStateObject>::const_iterator
 		newIt = newObjects.begin(); newIt != newObjects.end(); ++newIt) 
@@ -1385,7 +1387,7 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 			{
 				if (newIt->get_address() == address)
 				{
-					LOG_IPCP_DBG("Object is self generated, updating the sequence number and age	of %s to %d", obj_to_up->
+					LOG_IPCP_DBG("Object is self generated, updating the sequence number and age of %s to %d", obj_to_up->
 						      get_objectname().c_str(),
 						      obj_to_up->get_sequencenumber());
 					obj_to_up->set_sequencenumber(newIt->get_sequencenumber()+ 1);
@@ -1945,6 +1947,57 @@ void LinkStateRoutingPolicy::updateAge()
 	db_->incrementAge();
 }
 
+void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTableEntry *>& rt)
+{
+	std::list<rina::RoutingTableEntry *> duplicates;
+	std::list<rina::RoutingTableEntry *>::iterator it;
+	std::list<rina::RoutingTableEntry *>::iterator jt;
+	std::list<rina::NHopAltList>::iterator kt;
+	std::list<rina::NHopAltList>::iterator lt;
+	rina::RoutingTableEntry * current = 0;
+	rina::RoutingTableEntry * candidate = 0;
+	bool contains = false;
+	bool equal = false;
+
+	for(it = rt.begin(); it != rt.end(); ++it) {
+		current = *it;
+		for (jt = duplicates.begin(); jt != duplicates.end(); ++jt) {
+			candidate = *jt;
+			equal = false;
+			if (current->address == candidate->address &&
+			    current->qosId == candidate->qosId &&
+			    current->cost == candidate->cost &&
+			    current->nextHopAddresses.size() == candidate->nextHopAddresses.size()) {
+				for (kt = current->nextHopAddresses.begin();
+						kt != current->nextHopAddresses.end(); ++kt) {
+					contains = false;
+					for (lt = candidate->nextHopAddresses.begin();
+							lt != candidate->nextHopAddresses.end(); ++lt) {
+						if (kt->alts.front() == lt->alts.front()) {
+							contains = true;
+							break;
+						}
+					}
+
+					if (!contains) {
+						equal = false;
+						break;
+					}
+				}
+
+				if  (equal)
+					duplicates.push_back(*jt);
+			}
+		}
+
+	}
+
+	for (it=duplicates.begin(); it!= duplicates.end(); ++it) {
+		rt.remove(*it);
+		delete *it;
+	}
+}
+
 void LinkStateRoutingPolicy::routingTableUpdate()
 {
 	std::list<FlowStateObject> all_fsos;
@@ -1992,6 +2045,8 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 							g2_fsos,
 							old_address,
 							rt);
+
+		removeDuplicateEntries(rt);
 	} else {
 		g1.set_flow_state_objects(all_fsos);
 		routing_algorithm_->computeRoutingTable(g1,
@@ -2013,6 +2068,7 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 	}
 
 	assert(ipc_process_->resource_allocator_->pduft_gen_ps);
+	LOG_IPCP_INFO("Computed new Next Hop and PDU Forwarding Tables");
 	ipc_process_->resource_allocator_->pduft_gen_ps->routingTableUpdated(rt);
 }
 

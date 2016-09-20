@@ -671,6 +671,8 @@ private:
 	void processAddressChangeEvent(rina::AddressChangeEvent * event);
 
 	void processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event);
+
+	void removeDuplicateEntries(std::list<rina::RoutingTableEntry *>& rt);
 };
 
 /// Encoder of Flow State object
