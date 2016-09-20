@@ -48,10 +48,14 @@ void DefaultPDUFTGeneratorPs::routingTableUpdated(const std::list<rina::RoutingT
 	LOG_IPCP_DBG("Got %d entries in the routing table", rt.size());
 	//Compute PDU Forwarding Table
 	std::list<rina::PDUForwardingTableEntry *> pduft;
+	std::list<rina::PDUForwardingTableEntry *>::iterator pfit;
+	std::list<rina::PDUForwardingTableEntry *>::iterator pfjt;
 	std::list<rina::RoutingTableEntry *>::const_iterator it;
 	std::list<rina::NHopAltList>::const_iterator jt;
 	std::list<unsigned int>::const_iterator kt;
 	rina::PDUForwardingTableEntry * entry;
+	rina::PDUForwardingTableEntry * candidate;
+	bool increment = true;
 	INMinusOneFlowManager * n1fm;
 	int port_id = 0;
 
@@ -91,6 +95,34 @@ void DefaultPDUFTGeneratorPs::routingTableUpdated(const std::list<rina::RoutingT
 		} else {
 			delete entry;
 		}
+	}
+
+	//Check for duplicates and remove them
+	pfit = pduft.begin();
+	while (pfit != pduft.end()) {
+		entry = *pfit;
+		increment = true;
+
+		for (pfjt = pduft.begin(); pfjt != pduft.end(); ++pfjt) {
+			if(pfit == pfjt)
+				continue;
+
+			candidate = *pfjt;
+
+			if (entry->address == candidate->address &&
+			    entry->qosId == candidate->qosId &&
+			    entry->cost == candidate->cost &&
+			    entry->portIdAltlists.size() == candidate->portIdAltlists.size() &&
+			    entry->portIdAltlists.front().alts.front() == candidate->portIdAltlists.front().alts.front()) {
+				pfit = pduft.erase(pfit);
+				delete entry;
+				increment = false;
+				break;
+			}
+		}
+
+		if (increment)
+			++pfit;
 	}
 
 	try {

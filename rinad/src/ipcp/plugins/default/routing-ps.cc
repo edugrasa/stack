@@ -351,7 +351,6 @@ void DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
 				entry->address = (*it);
 				entry->nextHopAddresses.push_back(rina::NHopAltList(nextHop));
 				entry->qosId = 0;
-				entry->cost = 1;
 				rt.push_back(entry);
 				LOG_IPCP_DBG("Added entry to routing table: destination %u, next-hop %u",
 						entry->address, nextHop);
@@ -1579,7 +1578,6 @@ ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * ls
 
 void ExpireOldAddressTimerTask::run()
 {
-	LOG_IPCP_INFO("Running Expire Old Address TT");
 	lsr_policy_->expireOldAddress(address, neighbor);
 }
 
