@@ -164,9 +164,10 @@ public:
 /// Contains the information of a predecessor, needed by the Dijkstra Algorithm
 class PredecessorInfo {
 public:
-	PredecessorInfo(unsigned int nPredecessor);
+	PredecessorInfo(unsigned int nPredecessor, unsigned int cost);
 
 	unsigned int predecessor_;
+	unsigned int cost_;
 };
 
 /// The routing algorithm used to compute the PDU forwarding table is a Shortest
@@ -195,7 +196,9 @@ private:
 	int getShortestDistance(unsigned int destination) const;
 	bool isNeighbor(Edge * edge, unsigned int node) const;
 	bool isSettled(unsigned int node) const;
-	unsigned int getNextHop(unsigned int address, unsigned int sourceAddress);
+	unsigned int getNextHop(unsigned int address,
+			        unsigned int sourceAddress,
+				unsigned int & cost);
 	void clear();
 };
 

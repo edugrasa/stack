@@ -632,7 +632,7 @@ void ResourceAllocator::set_pduft_entries(const std::list<rina::PDUForwardingTab
 			ribObj = new PDUFTEntryRIBObj(*it2);
 			rib_daemon_->addObjRIB(obj_name, &ribObj);
 		} catch (rina::Exception &e) {
-			LOG_WARN("Problems adding RIB obj: %s", e.what());
+			//LOG_WARN("Problems adding RIB obj: %s", e.what());
 			continue;
 		}
 

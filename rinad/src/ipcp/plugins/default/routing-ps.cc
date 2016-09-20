@@ -300,9 +300,11 @@ void Graph::print() const
 	}
 }
 
-PredecessorInfo::PredecessorInfo(unsigned int nPredecessor)
+PredecessorInfo::PredecessorInfo(unsigned int nPredecessor,
+				 unsigned int cost)
 {
 	predecessor_ = nPredecessor;
+	cost_ = cost;
 }
 
 DijkstraAlgorithm::DijkstraAlgorithm()
@@ -337,12 +339,13 @@ void DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
 	std::list<unsigned int>::const_iterator it;
 	unsigned int nextHop;
 	rina::RoutingTableEntry * entry;
+	unsigned int cost = 0;
 
 	execute(graph, source_address);
 
 	for (it = graph.vertices_.begin(); it != graph.vertices_.end(); ++it) {
 		if ((*it) != source_address) {
-			nextHop = getNextHop((*it), source_address);
+			nextHop = getNextHop((*it), source_address, cost);
 			if (nextHop != 0) {
 				entry = new rina::RoutingTableEntry();
 				entry->address = (*it);
@@ -419,7 +422,8 @@ void DijkstraAlgorithm::findMinimalDistances(const Graph& graph,
 			shortestDistance = getShortestDistance(node) + (*edgeIt)->weight_;
 			if (getShortestDistance(target) > shortestDistance) {
 				distances_[target] = shortestDistance;
-				predecessors_[target] = new PredecessorInfo(node);
+				predecessors_[target] = new PredecessorInfo(node,
+							                    (*edgeIt)->weight_);
 				unsettled_nodes_.insert(target);
 			}
 		}
@@ -451,7 +455,8 @@ bool DijkstraAlgorithm::isSettled(unsigned int node) const
 }
 
 unsigned int DijkstraAlgorithm::getNextHop(unsigned int target,
-		unsigned int source)
+					   unsigned int source,
+					   unsigned int & cost)
 {
 	std::map<unsigned int, PredecessorInfo *>::iterator it;
 	PredecessorInfo * step;
@@ -465,9 +470,11 @@ unsigned int DijkstraAlgorithm::getNextHop(unsigned int target,
 	}
 
 	it = predecessors_.find(step->predecessor_);
+	cost = 0;
 	while (it != predecessors_.end()) {
 		nextHop = step->predecessor_;
 		step = it->second;
+		cost++;
 		if (step->predecessor_ == source) {
 			break;
 		}
@@ -1507,8 +1514,6 @@ ComputeRoutingTimerTask::ComputeRoutingTimerTask(
 
 void ComputeRoutingTimerTask::run()
 {
-	LOG_IPCP_INFO("Compute Routing TT");
-
 	lsr_policy_->routingTableUpdate();
 
 	//Re-schedule
@@ -1526,7 +1531,6 @@ KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fso
 
 void KillFlowStateObjectTimerTask::run()
 {
-	LOG_IPCP_INFO("Running Kill Flow State Object TT");
 	fsos_->removeObject(fqn_);
 }
 
@@ -1539,7 +1543,6 @@ PropagateFSODBTimerTask::PropagateFSODBTimerTask(
 
 void PropagateFSODBTimerTask::run()
 {
-	LOG_IPCP_INFO("Running Propagate FSDB TT");
 	lsr_policy_->propagateFSDB();
 
 	//Re-schedule
@@ -1557,7 +1560,6 @@ UpdateAgeTimerTask::UpdateAgeTimerTask(
 
 void UpdateAgeTimerTask::run()
 {
-	LOG_IPCP_INFO("Running Update Age TT");
 	lsr_policy_->updateAge();
 
 	//Re-schedule
@@ -1801,6 +1803,7 @@ void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAdd
 
 void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbor)
 {
+	rina::ScopedLock g(lock_);
 	db_->deprecateAllObjectsWithAddress(address, neighbor);
 }
 
@@ -1971,6 +1974,17 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 
 			candidate = *jt;
 
+			//Detect multiple next hops to the same target, some with higher cost
+			if (current->address == candidate->address &&
+			    current->qosId == candidate->qosId &&
+			    current->cost > candidate->cost) {
+				it = rt.erase(it);
+				delete current;
+				increment = false;
+				break;
+			}
+
+			//Duplicate detection
 			if (current->address == candidate->address &&
 			    current->qosId == candidate->qosId &&
 			    current->cost == candidate->cost &&
