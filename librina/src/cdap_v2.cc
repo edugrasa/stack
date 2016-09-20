@@ -886,6 +886,7 @@ void CDAPInvokeIdManagerImpl::freeInvokeId(int invoke_id, bool sent)
 		used_invoke_sent_ids_.remove(invoke_id);
 	else
 		used_invoke_recv_ids_.remove(invoke_id);
+	LOG_INFO("Freeing invoke id %d for sent= %d", invoke_id, sent);
 	unlock();
 }
 int CDAPInvokeIdManagerImpl::newInvokeId(bool sent)
@@ -902,6 +903,7 @@ int CDAPInvokeIdManagerImpl::newInvokeId(bool sent)
 		candidate = candidate + 1;
 	}
 	invoke_ids->push_back(candidate);
+	LOG_INFO("Returning new invoke id %d for sent= %d", candidate, sent);
 	unlock();
 	return candidate;
 }
@@ -912,6 +914,7 @@ void CDAPInvokeIdManagerImpl::reserveInvokeId(int invoke_id, bool sent)
 		used_invoke_sent_ids_.push_back(invoke_id);
 	else
 		used_invoke_recv_ids_.push_back(invoke_id);
+	LOG_INFO("Reserving invoke id %d for sent= %d", invoke_id, sent);
 	unlock();
 }
 
