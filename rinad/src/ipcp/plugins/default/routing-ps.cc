@@ -1967,6 +1967,7 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 			    current->qosId == candidate->qosId &&
 			    current->cost == candidate->cost &&
 			    current->nextHopAddresses.size() == candidate->nextHopAddresses.size()) {
+				equal = true;
 				for (kt = current->nextHopAddresses.begin();
 						kt != current->nextHopAddresses.end(); ++kt) {
 					contains = false;
@@ -1995,8 +1996,15 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 		rt.remove(*it);
 		delete *it;
 	}
+}
 
+void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>& rt)
+{
+	std::list<rina::RoutingTableEntry *>::iterator it;
+	std::list<rina::NHopAltList>::iterator jt;
+	rina::RoutingTableEntry * current = 0;
 	std::stringstream ss;
+
 	for(it = rt.begin(); it != rt.end(); ++it) {
 		ss.str(std::string());
 		ss.clear();
@@ -2005,9 +2013,9 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 		   << "; QoS-id: " << current->qosId
 		   << "; Cost: " << current->cost
 		   << "; Next hop addresses: ";
-		for (kt = current->nextHopAddresses.begin();
-				kt != current->nextHopAddresses.end(); ++kt) {
-			ss << kt->alts.front() << "; ";
+		for (jt = current->nextHopAddresses.begin();
+				jt != current->nextHopAddresses.end(); ++jt) {
+			ss << jt->alts.front() << "; ";
 		}
 
 		LOG_IPCP_INFO("%s", ss.str().c_str());
@@ -2062,6 +2070,8 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 							old_address,
 							rt);
 
+		LOG_IPCP_INFO("Before removing duplicates");
+		printNhopTable(rt);
 		removeDuplicateEntries(rt);
 	} else {
 		g1.set_flow_state_objects(all_fsos);
@@ -2085,6 +2095,7 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 
 	assert(ipc_process_->resource_allocator_->pduft_gen_ps);
 	LOG_IPCP_INFO("Computed new Next Hop and PDU Forwarding Tables");
+	printNhopTable(rt);
 	ipc_process_->resource_allocator_->pduft_gen_ps->routingTableUpdated(rt);
 }
 
