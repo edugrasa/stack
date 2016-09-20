@@ -607,8 +607,14 @@ void ResourceAllocator::set_pduft_entries(const std::list<rina::PDUForwardingTab
 	std::list<std::string> obj_names = pduft.getKeys();
 	std::list<std::string>::iterator it;
 	for (it = obj_names.begin(); it != obj_names.end(); ++it) {
+		ss << PDUFTEntryRIBObj::object_name_prefix;
+		ss << *it;
+		obj_name = ss.str();
+		ss.str(std::string());
+		ss.clear();
+
 		try {
-			rib_daemon_->removeObjRIB(*it);
+			rib_daemon_->removeObjRIB(obj_name);
 		} catch (rina::Exception &e) {
 			LOG_WARN("Problems removing RIB obj: %s", e.what());
 		}
@@ -657,8 +663,14 @@ void ResourceAllocator::set_rt_entries(const std::list<rina::RoutingTableEntry*>
 	std::list<std::string> obj_names = rt.getKeys();
 	std::list<std::string>::iterator it;
 	for (it = obj_names.begin(); it != obj_names.end(); ++it) {
+		ss << NextHopTEntryRIBObj::object_name_prefix;
+		ss << *it;
+		obj_name = ss.str();
+		ss.str(std::string());
+		ss.clear();
+
 		try {
-			rib_daemon_->removeObjRIB(*it);
+			rib_daemon_->removeObjRIB(obj_name);
 		} catch (rina::Exception &e) {
 			LOG_WARN("Problems removing RIB obj: %s", e.what());
 		}
