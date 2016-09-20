@@ -1507,6 +1507,8 @@ ComputeRoutingTimerTask::ComputeRoutingTimerTask(
 
 void ComputeRoutingTimerTask::run()
 {
+	LOG_IPCP_INFO("Compute Routing TT");
+
 	lsr_policy_->routingTableUpdate();
 
 	//Re-schedule
@@ -1524,6 +1526,7 @@ KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fso
 
 void KillFlowStateObjectTimerTask::run()
 {
+	LOG_IPCP_INFO("Running Kill Flow State Object TT");
 	fsos_->removeObject(fqn_);
 }
 
@@ -1536,6 +1539,7 @@ PropagateFSODBTimerTask::PropagateFSODBTimerTask(
 
 void PropagateFSODBTimerTask::run()
 {
+	LOG_IPCP_INFO("Running Propagate FSDB TT");
 	lsr_policy_->propagateFSDB();
 
 	//Re-schedule
@@ -1553,6 +1557,7 @@ UpdateAgeTimerTask::UpdateAgeTimerTask(
 
 void UpdateAgeTimerTask::run()
 {
+	LOG_IPCP_INFO("Running Update Age TT");
 	lsr_policy_->updateAge();
 
 	//Re-schedule
@@ -1572,6 +1577,7 @@ ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * ls
 
 void ExpireOldAddressTimerTask::run()
 {
+	LOG_IPCP_INFO("Running Expire Old Address TT");
 	lsr_policy_->expireOldAddress(address, neighbor);
 }
 
@@ -1954,8 +1960,6 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 	rina::RoutingTableEntry * candidate = 0;
 	bool increment = true;
 
-	LOG_IPCP_INFO("Current rt size: %d", rt.size());
-
 	it = rt.begin();
 	while (it != rt.end()) {
 		current = *it;
@@ -1982,8 +1986,6 @@ void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTable
 		if (increment)
 			++it;
 	}
-
-	LOG_IPCP_INFO("Current rt size: %d", rt.size());
 }
 
 void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>& rt)
@@ -2057,9 +2059,6 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 							g2_fsos,
 							old_address,
 							rt);
-
-		LOG_IPCP_INFO("Before removing duplicates");
-		printNhopTable(rt);
 		removeDuplicateEntries(rt);
 	} else {
 		g1.set_flow_state_objects(all_fsos);

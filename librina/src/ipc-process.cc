@@ -880,7 +880,7 @@ RoutingTableEntry::RoutingTableEntry(){
 const std::string RoutingTableEntry::getKey() const
 {
 	std::stringstream ss;
-	ss << address << "-" << qosId;
+	ss << address << "-" << qosId << "-" << nextHopAddresses.front().alts.front();
 
 	return ss.str();
 }
@@ -971,7 +971,7 @@ const std::string PDUForwardingTableEntry::toString() {
 const std::string PDUForwardingTableEntry::getKey() const
 {
 	std::stringstream ss;
-	ss << address << "-" << qosId;
+	ss << address << "-" << qosId << "-" << portIdAltlists.front().alts.front();
 
 	return ss.str();
 }
