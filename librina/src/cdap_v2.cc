@@ -1817,11 +1817,29 @@ void CDAPSession::messageSentOrReceived(const cdap_m_t &cdap_message, bool sent)
 			   << cdap_message.op_code_;
 			throw CDAPException(ss.str());
 	}
+
 	freeOrReserveInvokeId(cdap_message, sent);
 }
 void CDAPSession::freeOrReserveInvokeId(const cdap_m_t &cdap_message, bool sent)
 {
-	if (cdap_message.op_code_ == cdap_m_t::M_CONNECT_R || cdap_message.op_code_ == cdap_m_t::M_RELEASE_R
+	if (cdap_message.invoke_id_ == 0)
+		return;
+
+	if (cdap_message.op_code_ == cdap_m_t::M_CONNECT
+			|| cdap_message.op_code_ == cdap_m_t::M_RELEASE
+			|| cdap_message.op_code_ == cdap_m_t::M_CREATE
+			|| cdap_message.op_code_ == cdap_m_t::M_DELETE
+			|| cdap_message.op_code_ == cdap_m_t::M_START
+			|| cdap_message.op_code_ == cdap_m_t::M_STOP
+			|| cdap_message.op_code_ == cdap_m_t::M_WRITE
+			|| cdap_message.op_code_ == cdap_m_t::M_CANCELREAD
+			|| cdap_message.op_code_ == cdap_m_t::M_READ) {
+		invoke_id_manager_->reserveInvokeId(cdap_message.invoke_id_,
+						    sent);
+	}
+
+	if (cdap_message.op_code_ == cdap_m_t::M_CONNECT_R
+			|| cdap_message.op_code_ == cdap_m_t::M_RELEASE_R
 			|| cdap_message.op_code_ == cdap_m_t::M_CREATE_R
 			|| cdap_message.op_code_ == cdap_m_t::M_DELETE_R
 			|| cdap_message.op_code_ == cdap_m_t::M_START_R
@@ -1830,25 +1848,9 @@ void CDAPSession::freeOrReserveInvokeId(const cdap_m_t &cdap_message, bool sent)
 			|| cdap_message.op_code_ == cdap_m_t::M_CANCELREAD_R
 			|| (cdap_message.op_code_ == cdap_m_t::M_READ_R
 					&& cdap_message.flags_
-							== cdap_rib::flags_t::NONE_FLAGS)
-			|| cdap_message.flags_
-					!= cdap_rib::flags_t::F_RD_INCOMPLETE) {
-		invoke_id_manager_->freeInvokeId(cdap_message.invoke_id_, sent);
-	}
-
-	if (cdap_message.invoke_id_ != 0) {
-		if (cdap_message.op_code_ == cdap_m_t::M_CONNECT
-				|| cdap_message.op_code_ == cdap_m_t::M_RELEASE
-				|| cdap_message.op_code_ == cdap_m_t::M_CREATE
-				|| cdap_message.op_code_ == cdap_m_t::M_DELETE
-				|| cdap_message.op_code_ == cdap_m_t::M_START
-				|| cdap_message.op_code_ == cdap_m_t::M_STOP
-				|| cdap_message.op_code_ == cdap_m_t::M_WRITE
-				|| cdap_message.op_code_ == cdap_m_t::M_CANCELREAD
-				|| cdap_message.op_code_ == cdap_m_t::M_READ) {
-			invoke_id_manager_->reserveInvokeId(
-					cdap_message.invoke_id_, sent);
-		}
+							== cdap_rib::flags_t::NONE_FLAGS)) {
+		invoke_id_manager_->freeInvokeId(cdap_message.invoke_id_,
+						 sent);
 	}
 }
 void CDAPSession::checkIsConnected() const
@@ -1861,6 +1863,9 @@ void CDAPSession::checkIsConnected() const
 void CDAPSession::checkInvokeIdNotExists(int invoke_id,
 					 bool sent) const
 {
+	if (invoke_id == 0)
+		return;
+
 	const std::map<int, CDAPOperationState*>* pending_messages;
 	if (sent)
 		pending_messages = &pending_messages_sent_;
@@ -1950,6 +1955,9 @@ void CDAPSession::checkCanSendOrReceiveResponse(int invoke_id,
 						cdap_m_t::Opcode op_code,
 						bool sender) const
 {
+	if (invoke_id == 0)
+		return;
+
 	bool validation_failed = false;
 	const std::map<int, CDAPOperationState*>* pending_messages;
 	if (!sender)
