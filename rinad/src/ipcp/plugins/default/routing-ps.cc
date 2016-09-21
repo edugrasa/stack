@@ -1175,7 +1175,6 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 	objects.erase(it);
 	LOG_IPCP_INFO("About to delete %p", it->second);
 	delete it->second;
-	LOG_IPCP_INFO("After delete %s", fqn.c_str());
 }
 
 FlowStateObject* FlowStateObjects::getObject(const std::string& fqn)
@@ -1531,7 +1530,8 @@ void ComputeRoutingTimerTask::run()
 	LOG_IPCP_INFO("Compute routing timer task done");
 }
 
-KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fsos, std::string fqn)
+KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fsos,
+							   const std::string& fqn)
 {
 	fsos_ = fsos;
 	fqn_ = fqn;

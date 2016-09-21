@@ -361,7 +361,8 @@ private:
 class FlowStateObjects;
 class KillFlowStateObjectTimerTask : public rina::TimerTask {
 public:
-	KillFlowStateObjectTimerTask(FlowStateObjects *fsos, std::string fqn);
+	KillFlowStateObjectTimerTask(FlowStateObjects *fsos,
+				     const std::string& fqn);
 	~KillFlowStateObjectTimerTask() throw(){};
 	void run();
 
