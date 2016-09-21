@@ -866,6 +866,7 @@ FlowStateObject::FlowStateObject(unsigned int address,
 
 FlowStateObject::~FlowStateObject()
 {
+	LOG_IPCP_INFO("Destructor called");
 }
 
 const std::string FlowStateObject::toString()
@@ -886,8 +887,11 @@ FlowStateObject& FlowStateObject::operator=(const FlowStateObject& other)
 	cost_ = other.get_cost();
 	state_ = other.is_state();
 	sequence_number_ = other.get_sequencenumber();
+	object_name_ = other.get_objectname();
 	age_ = other.get_age();
 	modified_ = true;
+
+	return *this;
 }
 
 unsigned int FlowStateObject::get_address() const
