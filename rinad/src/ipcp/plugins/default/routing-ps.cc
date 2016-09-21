@@ -1234,8 +1234,9 @@ void FlowStateObjects::incrementAge(unsigned int max_age,
 			it->second->set_age(it->second->get_age() + 1);
 
 		if (it->second->get_age() >= max_age && !it->second->is_deprecated()) {
-			LOG_IPCP_INFO("Object %s will be removed. Age: %d",
+			LOG_IPCP_INFO("Object %s will be removed %p. Age: %d",
 					it->second->get_objectname().c_str(),
+					it->second,
 					it->second->get_age());
 			it->second->set_deprecated(true);
 			KillFlowStateObjectTimerTask* ksttask =
@@ -1740,8 +1741,6 @@ void LinkStateRoutingPolicy::eventHappened(rina::InternalEvent * event)
 	if (!event)
 		return;
 
-	rina::ScopedLock g(lock_);
-
 	if (event->type == rina::InternalEvent::APP_N_MINUS_1_FLOW_DEALLOCATED) {
 		rina::NMinusOneFlowDeallocatedEvent * flowEvent =
 				(rina::NMinusOneFlowDeallocatedEvent *) event;
@@ -1772,6 +1771,8 @@ void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent 
 {
 	std::list<FlowStateObject> all_fsos;
 
+	rina::ScopedLock g(lock_);
+
 	db_->getAllFSOs(all_fsos);
 
 	//Add LSOs to reflect the routes to the new address
@@ -1792,6 +1793,8 @@ void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent 
 
 void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event)
 {
+	rina::ScopedLock g(lock_);
+
 	std::list<FlowStateObject> all_fsos;
 
 	db_->getAllFSOs(all_fsos);
@@ -1824,6 +1827,8 @@ void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbo
 void LinkStateRoutingPolicy::processFlowDeallocatedEvent(
 		rina::NMinusOneFlowDeallocatedEvent * event)
 {
+	rina::ScopedLock g(lock_);
+
 	for (std::list<rina::FlowInformation>::iterator it
 		= allocated_flows_.begin(); it != allocated_flows_.end(); ++it) {
 		if (it->portId == event->port_id_) {
@@ -1837,7 +1842,9 @@ void LinkStateRoutingPolicy::processFlowDeallocatedEvent(
 }
 
 void LinkStateRoutingPolicy::processNeighborLostEvent(
-		rina::ConnectiviyToNeighborLostEvent* event) {
+		rina::ConnectiviyToNeighborLostEvent* event)
+{
+	rina::ScopedLock g(lock_);
 	db_->deprecateObjectsNeighbor(event->neighbor_.address_, ipc_process_->get_address());
 }
 
@@ -1845,6 +1852,8 @@ void LinkStateRoutingPolicy::processNeighborLostEvent(
 void LinkStateRoutingPolicy::processFlowAllocatedEvent(
 		rina::NMinusOneFlowAllocatedEvent * event)
 {
+	rina::ScopedLock g(lock_);
+
 	if (ipc_process_->resource_allocator_->get_n_minus_one_flow_manager()->
 			numberOfFlowsToNeighbour(event->flow_information_.remoteAppName.processName,
 					event->flow_information_.remoteAppName.processInstance) > 1) {
@@ -1869,6 +1878,8 @@ void LinkStateRoutingPolicy::processFlowAllocatedEvent(
 void LinkStateRoutingPolicy::processNeighborAddedEvent(
 		rina::NeighborAddedEvent * event)
 {
+	rina::ScopedLock g(lock_);
+
 	int portId = event->neighbor_.get_underlying_port_id();
 	for (std::list<rina::FlowInformation>::iterator it = 
 		allocated_flows_.begin(); it != allocated_flows_.end(); ++it) 
@@ -2108,9 +2119,10 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 		}
 	}
 
-	assert(ipc_process_->resource_allocator_->pduft_gen_ps);
 	LOG_IPCP_INFO("Computed new Next Hop and PDU Forwarding Tables");
 	printNhopTable(rt);
+
+	assert(ipc_process_->resource_allocator_->pduft_gen_ps);
 	ipc_process_->resource_allocator_->pduft_gen_ps->routingTableUpdated(rt);
 }
 
