@@ -1513,6 +1513,7 @@ ComputeRoutingTimerTask::ComputeRoutingTimerTask(
 
 void ComputeRoutingTimerTask::run()
 {
+	LOG_IPCP_INFO("Compute routing timer task running");
 	lsr_policy_->routingTableUpdate();
 
 	//Re-schedule
@@ -1530,6 +1531,7 @@ KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fso
 
 void KillFlowStateObjectTimerTask::run()
 {
+	LOG_IPCP_INFO("Kill flow state object timer task running");
 	fsos_->removeObject(fqn_);
 }
 
@@ -1542,6 +1544,7 @@ PropagateFSODBTimerTask::PropagateFSODBTimerTask(
 
 void PropagateFSODBTimerTask::run()
 {
+	LOG_IPCP_INFO("Propagate FSDB timer task running");
 	lsr_policy_->propagateFSDB();
 
 	//Re-schedule
@@ -1559,6 +1562,7 @@ UpdateAgeTimerTask::UpdateAgeTimerTask(
 
 void UpdateAgeTimerTask::run()
 {
+	LOG_IPCP_INFO("Update age timer task running");
 	lsr_policy_->updateAge();
 
 	//Re-schedule
@@ -1578,6 +1582,7 @@ ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * ls
 
 void ExpireOldAddressTimerTask::run()
 {
+	LOG_IPCP_INFO("Expire old address timer task running");
 	lsr_policy_->expireOldAddress(address, neighbor);
 }
 
