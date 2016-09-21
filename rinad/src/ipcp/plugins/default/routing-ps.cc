@@ -1161,7 +1161,7 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 {
 	rina::ScopedLock g(lock);
 
-	LOG_IPCP_DBG("Trying to remove object %s", fqn.c_str());
+	LOG_IPCP_INFO("Trying to remove object %s", fqn.c_str());
 
 	std::map<std::string, FlowStateObject*>::iterator it =
 			objects.find(fqn);
@@ -1173,6 +1173,7 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 	rib_daemon->removeObjRIB(it->second->get_objectname());
 
 	objects.erase(it);
+	LOG_IPCP_INFO("About to delete");
 	delete it->second;
 }
 
