@@ -1173,8 +1173,9 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 	rib_daemon->removeObjRIB(it->second->get_objectname());
 
 	objects.erase(it);
-	LOG_IPCP_INFO("About to delete");
+	LOG_IPCP_INFO("About to delete %p", it->second);
 	delete it->second;
+	LOG_IPCP_INFO("After delete %s", fqn.c_str());
 }
 
 FlowStateObject* FlowStateObjects::getObject(const std::string& fqn)
@@ -1191,6 +1192,7 @@ FlowStateObject* FlowStateObjects::getObject(const std::string& fqn)
 
 void FlowStateObjects::has_modified(bool modified)
 {
+	rina::ScopedLock g(lock);
 	modified_ = modified;
 }
 
@@ -1232,7 +1234,9 @@ void FlowStateObjects::incrementAge(unsigned int max_age,
 			it->second->set_age(it->second->get_age() + 1);
 
 		if (it->second->get_age() >= max_age && !it->second->is_deprecated()) {
-			LOG_IPCP_DBG("Object to erase age: %d", it->second->get_age());
+			LOG_IPCP_INFO("Object %s will be removed. Age: %d",
+					it->second->get_objectname().c_str(),
+					it->second->get_age());
 			it->second->set_deprecated(true);
 			KillFlowStateObjectTimerTask* ksttask =
 				new KillFlowStateObjectTimerTask(this, it->second->get_objectname());
@@ -1284,6 +1288,7 @@ void FlowStateObjects::encodeAllFSOs(rina::ser_obj_t& obj)
 
 bool FlowStateObjects::is_modified() const
 {
+	rina::ScopedLock g(lock);
 	return modified_;
 }
 
