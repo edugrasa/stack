@@ -1286,7 +1286,7 @@ void FlowStateObjects::encodeAllFSOs(rina::ser_obj_t& obj)
 	}
 }
 
-bool FlowStateObjects::is_modified() const
+bool FlowStateObjects::is_modified()
 {
 	rina::ScopedLock g(lock);
 	return modified_;
