@@ -1062,8 +1062,12 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 	if (it == objects.end())
 		return;
 
+	LOG_IPCP_INFO("Object name before: %s", it->second->getObjectName().c_str());
+
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*) IPCPFactory::getIPCP()->get_rib_daemon();
-	rib_daemon->removeObjRIB(it->second->getObjectName());
+	rib_daemon->removeObjRIB(fqn);
+
+	LOG_IPCP_INFO("Object name after: %s", it->second->getObjectName().c_str());
 
 	objects.erase(it);
 	LOG_IPCP_INFO("About to delete %p", it->second);
