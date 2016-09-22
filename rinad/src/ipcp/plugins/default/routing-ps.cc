@@ -230,7 +230,7 @@ bool Graph::contains_edge(unsigned int address1, unsigned int address2) const
 void Graph::init_edges()
 {
 	std::list<unsigned int>::const_iterator it;
-	std::list<FlowStateObject>::const_iterator flowIt;
+	std::list<FlowStateObject>::iterator flowIt;
 
 	for (it = vertices_.begin(); it != vertices_.end(); ++it) {
 		checked_vertices_.push_back(new CheckedVertex((*it)));
@@ -245,7 +245,7 @@ void Graph::init_edges()
 		}
 
 		LOG_IPCP_DBG("Processing flow state object: %s",
-				flowIt->object_name.c_str());
+				flowIt->getObjectName().c_str());
 
 		origin = get_checked_vertex(flowIt->address);
 		if (origin == 0) {
@@ -855,10 +855,6 @@ FlowStateObject::FlowStateObject(unsigned int address_,
 	state = up_;
 	sequence_number = sequence_number_;
 	age = age_;
-	std::stringstream ss;
-	ss << FlowStateRIBObject::object_name_prefix
-	   << getKey();
-	object_name = ss.str();
 	modified = true;
 	deprecated = false;
 	avoid_port = 0;
@@ -889,7 +885,6 @@ FlowStateObject& FlowStateObject::operator=(const FlowStateObject& other)
 	sequence_number = other.sequence_number;
 	age = other.age;
 	modified = true;
-	object_name = other.object_name;
 	deprecated = false;
 
 	return *this;
@@ -898,19 +893,28 @@ FlowStateObject& FlowStateObject::operator=(const FlowStateObject& other)
 
 void FlowStateObject::deprecateObject(unsigned int max_age)
 {
-	LOG_IPCP_DBG("Object %s deprecated", object_name.c_str());
+	LOG_IPCP_DBG("Object %s deprecated", getObjectName().c_str());
 	state = false;
 	age = max_age + 1;
 	sequence_number ++;
 	modified = true;
 }
 
-std::string FlowStateObject::getKey()
+std::string FlowStateObject::getObjectName() const
+{
+	std::stringstream ss;
+	ss << FlowStateRIBObject::object_name_prefix
+	   << address << "-" << neighbor_address;
+
+	return ss.str();
+}
+
+/*std::string FlowStateObject::getKey()
 {
 	std::stringstream ss;
 	ss << address << "-" << neighbor_address;
 	return ss.str();
-}
+}*/
 
 // CLASS FlowStateRIBObject
 const std::string FlowStateRIBObject::clazz_name = "FlowStateObject";
@@ -1002,7 +1006,7 @@ bool FlowStateObjects::addObject(const FlowStateObject& object)
 {
 	rina::ScopedLock g(lock);
 
-	if (objects.find(object.object_name) == objects.end())
+	if (objects.find(object.getObjectName()) == objects.end())
 	{
 		addCheckedObject(object);
 		return true;
@@ -1010,7 +1014,7 @@ bool FlowStateObjects::addObject(const FlowStateObject& object)
 	else
 	{
 		LOG_DBG("FlowStateObject with name %s already present in the database",
-			object.object_name.c_str());
+			object.getObjectName().c_str());
 		return false;
 	}
 }
@@ -1023,10 +1027,10 @@ bool FlowStateObjects::addCheckedObject(const FlowStateObject& object)
 						    object.state,
 						    object.sequence_number,
 						    object.age);
-	objects[object.object_name] = fso;
+	objects[object.getObjectName()] = fso;
 	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(fso, manager_);
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*)IPCPFactory::getIPCP()->get_rib_daemon();
-	rib_daemon->addObjRIB(fso->object_name, &rib_obj);
+	rib_daemon->addObjRIB(fso->getObjectName(), &rib_obj);
 	modified_ = true;
 }
 
@@ -1092,7 +1096,7 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 		return;
 
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*) IPCPFactory::getIPCP()->get_rib_daemon();
-	rib_daemon->removeObjRIB(it->second->object_name);
+	rib_daemon->removeObjRIB(it->second->getObjectName());
 
 	objects.erase(it);
 	LOG_IPCP_INFO("About to delete %p", it->second);
@@ -1156,12 +1160,12 @@ void FlowStateObjects::incrementAge(unsigned int max_age,
 
 		if (it->second->age >= max_age && !it->second->deprecated) {
 			LOG_IPCP_INFO("Object %s will be removed %p. Age: %d",
-					it->second->object_name.c_str(),
+					it->second->getObjectName().c_str(),
 					it->second,
 					it->second->age);
 			it->second->deprecated = true;
 			KillFlowStateObjectTimerTask* ksttask =
-				new KillFlowStateObjectTimerTask(this, it->second->object_name);
+				new KillFlowStateObjectTimerTask(this, it->second->getObjectName());
 
 			timer->scheduleTask(ksttask, wait_until_remove);
 		}
@@ -1310,19 +1314,19 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 	for (std::list<FlowStateObject>::const_iterator
 		newIt = newObjects.begin(); newIt != newObjects.end(); ++newIt) 
 	{
-		FlowStateObject * obj_to_up = fsos->getObject(newIt->object_name);
+		FlowStateObject * obj_to_up = fsos->getObject(newIt->getObjectName());
 		//1 If the object exists update
 		if (obj_to_up != NULL)
 		{
 			LOG_IPCP_DBG("Found the object in the DB. Object: %s",
-				obj_to_up->object_name.c_str());
+				obj_to_up->getObjectName().c_str());
 			//1.1 If the object has a higher sequence number update
 			if (newIt->sequence_number > obj_to_up->sequence_number)
 			{
 				if (newIt->address == address)
 				{
 					LOG_IPCP_DBG("Object is self generated, updating the sequence number and age of %s to %d", obj_to_up->
-						      object_name.c_str(),
+						      getObjectName().c_str(),
 						      obj_to_up->sequence_number);
 					obj_to_up->sequence_number = newIt->sequence_number + 1;
 					obj_to_up->avoid_port = NO_AVOID_PORT;
@@ -1331,7 +1335,7 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 				else 
 				{
 					LOG_IPCP_DBG("Update the object %s with seq num %d",
-						      obj_to_up->object_name.c_str(),
+						      obj_to_up->getObjectName().c_str(),
 						      newIt->sequence_number);
 					obj_to_up->avoid_port = avoidPort;
 					if (newIt->age >= maximum_age) {
@@ -1374,7 +1378,7 @@ void FlowStateManager::prepareForPropagation(
 			it != modifiedFSOs.end(); ++it)
 	{
 		LOG_DBG("Propagation: Check modified object %s with age %d and status %d",
-			(*it)->object_name.c_str(),
+			(*it)->getObjectName().c_str(),
 			(*it)->age,
 			(*it)->state);
 
@@ -2122,10 +2126,6 @@ void FlowStateObjectListEncoder::decode(const rina::ser_obj_t &serobj,
 	{
 		FlowStateObject fso;
 		fso_helpers::toModel(gpb.flow_state_objects(i), fso);
-		std::stringstream ss;
-		ss << FlowStateRIBObject::object_name_prefix
-		   << fso.getKey();
-		fso.object_name = ss.str();
 		des_obj.push_back(fso);
 	}
 }

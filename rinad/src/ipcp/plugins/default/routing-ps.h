@@ -286,7 +286,8 @@ public:
 	const std::string toString();
 	FlowStateObject& operator=(const FlowStateObject& other);
 	void deprecateObject(unsigned int max_age);
-	std::string getKey();
+	//std::string getKey();
+	std::string getObjectName() const;
 
 	// The address of the IPC Process
 	unsigned int address;
@@ -307,7 +308,7 @@ public:
 	// The object is being erased
 	bool deprecated;
 	// The name of the object in the RIB
-	std::string object_name;
+	//std::string object_name;
 };
 
 class FlowStateManager;
