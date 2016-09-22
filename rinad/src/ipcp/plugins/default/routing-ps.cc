@@ -862,8 +862,8 @@ FlowStateObject::FlowStateObject(unsigned int address_,
 
 FlowStateObject::~FlowStateObject()
 {
-	LOG_IPCP_INFO("Destructor of object %s called",
-		      getObjectName().c_str());
+	LOG_IPCP_INFO("Destructor of object %s with pointer %p called",
+		      getObjectName().c_str(), this);
 }
 
 const std::string FlowStateObject::toString()
@@ -938,47 +938,6 @@ void FlowStateRIBObject::read(const rina::cdap_rib::con_handle_t &con,
 	encoder.encode(*obj, obj_reply);
 
 	res.code_ = rina::cdap_rib::CDAP_SUCCESS;
-}
-
-void FlowStateRIBObject::write(const rina::cdap_rib::con_handle_t &con, 
-	const std::string& fqn,	const std::string& clas, 
-	const rina::cdap_rib::filt_info_t &filt, const int invoke_id, 
-	const rina::ser_obj_t &obj_req, rina::ser_obj_t &obj_reply,	
-	rina::cdap_rib::res_info_t& res)
-{
-	//1 Decode & overwrite the object
-	FlowStateObjectEncoder encoder;
-	FlowStateObject new_obj;
-	encoder.decode(obj_req, new_obj);
-
-	//2 Check & overwrite
-	if (obj->address == new_obj.address &&
-		obj->neighbor_address == new_obj.neighbor_address)
-	{
-		LOG_IPCP_INFO("**** Dins el codi sospitos *****");
-		obj->address = new_obj.address;
-		obj->neighbor_address = new_obj.neighbor_address;
-		obj->cost = new_obj.cost;
-		obj->state = new_obj.state;
-		obj->sequence_number = new_obj.sequence_number;
-		obj->age = new_obj.age;
-		obj->modified = true;
-		obj->avoid_port = con.port_id;
-		res.code_ = rina::cdap_rib::CDAP_SUCCESS;
-	}
-	else
-	{
-		res.code_ = rina::cdap_rib::CDAP_INVALID_OBJ;
-	}
-}
-
-bool FlowStateRIBObject::delete_(const rina::cdap_rib::con_handle_t &con, 
-	const std::string& fqn,	const std::string& clas, 
-	const rina::cdap_rib::filt_info_t &filt,
-	const int invoke_id, rina::cdap_rib::res_info_t& res)
-{
-	manager->deprecateObject(fqn);
-	return false;
 }
 
 const std::string FlowStateRIBObject::get_displayable_value() const
