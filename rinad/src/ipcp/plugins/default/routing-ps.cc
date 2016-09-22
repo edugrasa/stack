@@ -1083,7 +1083,7 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 
 	objects.erase(it);
 	LOG_IPCP_INFO("About to delete %p", it->second);
-	//delete it->second;
+	delete it->second;
 }
 
 bool FlowStateObjects::getObjectCopy(const std::string& fqn,
