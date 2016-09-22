@@ -919,10 +919,13 @@ std::string FlowStateObject::getObjectName() const
 const std::string FlowStateRIBObject::clazz_name = "FlowStateObject";
 const std::string FlowStateRIBObject::object_name_prefix = "/resalloc/fsos/key=";
 
-FlowStateRIBObject::FlowStateRIBObject(FlowStateObject* new_obj):
-rina::rib::RIBObj(clazz_name)
+
+FlowStateRIBObject::FlowStateRIBObject(FlowStateObjects * fsos,
+		   	   	       const std::string& fqn):
+		rina::rib::RIBObj(clazz_name)
 {
-	obj = new_obj;
+	fsos_ = fsos;
+	fqn_ = fqn;
 }
 
 void FlowStateRIBObject::read(const rina::cdap_rib::con_handle_t &con, 
@@ -931,14 +934,24 @@ void FlowStateRIBObject::read(const rina::cdap_rib::con_handle_t &con,
 	rina::ser_obj_t &obj_reply, rina::cdap_rib::res_info_t& res)
 {
 	FlowStateObjectEncoder encoder;
-	encoder.encode(*obj, obj_reply);
+	FlowStateObject result;
 
-	res.code_ = rina::cdap_rib::CDAP_SUCCESS;
+	if (fsos_->getObjectCopy(fqn_, result)) {
+		res.code_ = rina::cdap_rib::CDAP_SUCCESS;
+		encoder.encode(result, obj_reply);
+	} else {
+		res.code_ = rina::cdap_rib::CDAP_ERROR;
+	}
 }
 
 const std::string FlowStateRIBObject::get_displayable_value() const
 {
-	return obj->toString();
+	FlowStateObject result;
+
+	if (fsos_->getObjectCopy(fqn_, result))
+		return result.toString();
+	else
+		return "Error retrieving object";
 }
 
 // CLASS FlowStateObjects
@@ -994,7 +1007,7 @@ void FlowStateObjects::addCheckedObject(const FlowStateObject& object)
 	LOG_IPCP_INFO("Create new Flow State object with name %s and pointer %p",
 			fso->getObjectName().c_str(),
 			fso);
-	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(fso);
+	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(this, object.getObjectName());
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*)IPCPFactory::getIPCP()->get_rib_daemon();
 	rib_daemon->addObjRIB(fso->getObjectName(), &rib_obj);
 	modified_ = true;
@@ -1073,16 +1086,28 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 	delete it->second;
 }
 
-FlowStateObject* FlowStateObjects::getObject(const std::string& fqn)
+bool FlowStateObjects::getObjectCopy(const std::string& fqn,
+		   	   	     FlowStateObject& object)
 {
 	rina::ScopedLock g(lock);
 
 	std::map<std::string, FlowStateObject*>::iterator it =
 		objects.find(fqn);
-	if ( it != objects.end())
-		return it->second;
+	if (it == objects.end()) {
+		LOG_IPCP_WARN("Could not find FSO with name %s", fqn.c_str());
+		return false;
+	}
 
-	return 0;
+	object.address = it->second->address;
+	object.age = it->second->age;
+	object.avoid_port = it->second->avoid_port;
+	object.cost = it->second->cost;
+	object.deprecated = it->second->deprecated;
+	object.modified = it->second->modified;
+	object.neighbor_address = it->second->neighbor_address;
+	object.sequence_number = it->second->sequence_number;
+
+	return true;
 }
 
 void FlowStateObjects::has_modified(bool modified)
@@ -1091,7 +1116,30 @@ void FlowStateObjects::has_modified(bool modified)
 	modified_ = modified;
 }
 
-void FlowStateObjects::getModifiedFSOs(std::list<FlowStateObject *>& result)
+void FlowStateObjects::modifyObject(const std::string& fqn,
+		  	  	    FlowStateObject& object)
+{
+	std::map<std::string, FlowStateObject *>::iterator it;
+
+	rina::ScopedLock g(lock);
+
+	it = objects.find(fqn);
+	if (it == objects.end()) {
+		LOG_IPCP_WARN("Could not find FSO with name %s", fqn.c_str());
+		return;
+	}
+
+	it->second->address = object.address;
+	it->second->age = object.age;
+	it->second->avoid_port = object.avoid_port;
+	it->second->cost = object.cost;
+	it->second->modified = true;
+	it->second->neighbor_address = object.neighbor_address;
+	it->second->state = object.state;
+	it->second->sequence_number = object.sequence_number;
+}
+
+void FlowStateObjects::getModifiedFSOs(std::list<FlowStateObject >& result)
 {
 	rina::ScopedLock g(lock);
 
@@ -1100,7 +1148,7 @@ void FlowStateObjects::getModifiedFSOs(std::list<FlowStateObject *>& result)
 	{
 		if (it->second->modified)
 		{
-			result.push_back(it->second);
+			result.push_back(*(it->second));
 		}
 	}
 }
@@ -1557,42 +1605,44 @@ void LinkStateRoutingPolicy::updateObjects(const std::list<FlowStateObject>& new
 	LOG_IPCP_INFO("Received Flow State object WRITE message via N-1 port-id %d (%d objects)",
 		       avoidPort,
 		       newObjects.size());
+	FlowStateObject aux_fso;
 
 	for (std::list<FlowStateObject>::const_iterator
 		newIt = newObjects.begin(); newIt != newObjects.end(); ++newIt)
 	{
-		FlowStateObject * obj_to_up = fsos->getObject(newIt->getObjectName());
 		//1 If the object exists update
-		if (obj_to_up != NULL)
+		if (fsos->getObjectCopy(newIt->getObjectName(), aux_fso))
 		{
 			LOG_IPCP_DBG("Found the object in the DB. Object: %s",
-				obj_to_up->getObjectName().c_str());
+				aux_fso.getObjectName().c_str());
 			//1.1 If the object has a higher sequence number update
-			if (newIt->sequence_number > obj_to_up->sequence_number)
+			if (newIt->sequence_number > aux_fso.sequence_number)
 			{
 				if (newIt->address == address)
 				{
 					LOG_IPCP_DBG("Object is self generated, updating the sequence number and age of %s to %d",
-						      obj_to_up->getObjectName().c_str(),
-						      obj_to_up->sequence_number);
-					obj_to_up->sequence_number = newIt->sequence_number + 1;
-					obj_to_up->avoid_port = NO_AVOID_PORT;
-					obj_to_up->age = 0;
+						      aux_fso.getObjectName().c_str(),
+						      aux_fso.sequence_number);
+					aux_fso.sequence_number = newIt->sequence_number + 1;
+					aux_fso.avoid_port = NO_AVOID_PORT;
+					aux_fso.age = 0;
 				}
 				else
 				{
 					LOG_IPCP_DBG("Update the object %s with seq num %d",
-						      obj_to_up->getObjectName().c_str(),
+						      aux_fso.getObjectName().c_str(),
 						      newIt->sequence_number);
-					obj_to_up->avoid_port = avoidPort;
+					aux_fso.avoid_port = avoidPort;
 					if (newIt->age >= maximum_age) {
-						obj_to_up->deprecateObject(maximum_age);
+						aux_fso.deprecateObject(maximum_age);
 					} else {
-						obj_to_up->age = 0;
-						obj_to_up->sequence_number = newIt->sequence_number;
+						aux_fso.age = 0;
+						aux_fso.sequence_number = newIt->sequence_number;
 					}
 				}
-				obj_to_up->modified = true;
+
+				aux_fso.modified = true;
+				fsos->modifyObject(newIt->getObjectName(), aux_fso);
 				fsos->has_modified(true);
 			}
 		}
@@ -1736,28 +1786,30 @@ void LinkStateRoutingPolicy::propagateFSDB()
 	}
 
 	//3 Get the objects to send
-	std::list<FlowStateObject *> modifiedFSOs;
+	std::list<FlowStateObject> modifiedFSOs;
 	fsos->getModifiedFSOs(modifiedFSOs);
 
 	//4 add each modified object to its port list
-	for (std::list<FlowStateObject*>::iterator it = modifiedFSOs.begin();
+	for (std::list<FlowStateObject>::iterator it = modifiedFSOs.begin();
 			it != modifiedFSOs.end(); ++it)
 	{
 		LOG_DBG("Propagation: Check modified object %s with age %d and status %d",
-			(*it)->getObjectName().c_str(),
-			(*it)->age,
-			(*it)->state);
+			it->getObjectName().c_str(),
+			it->age,
+			it->state);
 
 		for(std::map<int, std::list<FlowStateObject> >::iterator it2 =
 				objectsToSend.begin(); it2 != objectsToSend.end(); ++it2)
 		{
-			if(it2->first != (*it)->avoid_port)
+			if(it2->first != it->avoid_port)
 			{
-				it2->second.push_back(**it);
+				it2->second.push_back(*it);
 			}
 		}
-		(*it)->modified = false;
-		(*it)->avoid_port = NO_AVOID_PORT;
+
+		it->modified = false;
+		it->avoid_port = NO_AVOID_PORT;
+		fsos->modifyObject(it->getObjectName(), *it);
 	}
 
 	if (objectsToSend.size() == 0) {

@@ -311,21 +311,24 @@ public:
 	//std::string object_name;
 };
 
-class FlowStateManager;
+class FlowStateObjects;
 /// A single flow state object
 class FlowStateRIBObject: public rina::rib::RIBObj {
 public:
-	FlowStateRIBObject(FlowStateObject* new_obj);
+	FlowStateRIBObject(FlowStateObjects * fsos,
+			   const std::string& fqn);
 	void read(const rina::cdap_rib::con_handle_t &con, const std::string& fqn,
 		const std::string& clas, const rina::cdap_rib::filt_info_t &filt,
 		const int invoke_id, rina::ser_obj_t &obj_reply, 
 		rina::cdap_rib::res_info_t& res);
 	const std::string get_displayable_value() const;
 
-	FlowStateObject* obj;
-
 	const static std::string clazz_name;
 	const static std::string object_name_prefix;
+
+private:
+	std::string fqn_;
+	FlowStateObjects* fsos_;
 };
 
 class LinkStateRoutingPolicy;
@@ -366,8 +369,11 @@ public:
 	void deprecateObjectsWithAddress(unsigned int address,
 					 unsigned int max_age,
 					 bool neighbor);
-	FlowStateObject * getObject(const std::string& fqn);
-	void getModifiedFSOs(std::list<FlowStateObject *>& result);
+	bool getObjectCopy(const std::string& fqn,
+			   FlowStateObject& object);
+	void modifyObject(const std::string& fqn,
+			  FlowStateObject& object);
+	void getModifiedFSOs(std::list<FlowStateObject>& result);
 	void getAllFSOs(std::list<FlowStateObject>& result);
 	void incrementAge(unsigned int max_age,
 			  unsigned long wait_until_remove,
