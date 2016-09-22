@@ -286,49 +286,28 @@ public:
 	const std::string toString();
 	FlowStateObject& operator=(const FlowStateObject& other);
 	void deprecateObject(unsigned int max_age);
-	//accessors
-	unsigned int get_address() const;
-	unsigned int get_neighboraddress() const;
-	unsigned int get_cost() const;
-	bool is_state() const;
-	unsigned int get_sequencenumber() const;
-	unsigned int get_age() const;
-	bool is_modified() const;
-	unsigned int get_avoidport() const;
-	bool is_deprecated() const;
-	std::string get_objectname() const;
-	void set_address(unsigned int address);
-	void set_neighboraddress(unsigned int neighbor_address);
-	void set_cost(unsigned int cost);
-	void has_state(bool state);
-	void set_sequencenumber(unsigned int sequence_number);
-	void set_age(unsigned int age);
-	void set_object_name(const std::string& name);
-	void has_modified(bool modified);
-	void set_avoidport(unsigned int avoid_port);
-	void set_deprecated(bool deprecated);
-	const std::string getKey() const;
-private:
+	std::string getKey();
+
 	// The address of the IPC Process
-	unsigned int address_;
+	unsigned int address;
 	// The address of the neighbor IPC Process
-	unsigned int neighbor_address_;
+	unsigned int neighbor_address;
 	// The port_id assigned by the neighbor IPC Process to the N-1 flow
-	unsigned int cost_;
+	unsigned int cost;
 	// Flow up (true) or down (false)
-	bool state_;
+	bool state;
 	// A sequence number to be able to discard old information
-	unsigned int sequence_number_;
+	unsigned int sequence_number;
 	// Age of this FSO (in seconds)
-	unsigned int age_;
+	unsigned int age;
 	// The object has been marked for propagation
-	bool modified_;
+	bool modified;
 	// Avoid port in the next propagation
-	int avoid_port_;
+	int avoid_port;
 	// The object is being erased
 	bool deprecated;
 	// The name of the object in the RIB
-	std::string object_name_;
+	std::string object_name;
 };
 
 class FlowStateManager;
