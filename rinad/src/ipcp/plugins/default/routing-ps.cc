@@ -954,6 +954,7 @@ void FlowStateRIBObject::write(const rina::cdap_rib::con_handle_t &con,
 	if (obj->address == new_obj.address &&
 		obj->neighbor_address == new_obj.neighbor_address)
 	{
+		LOG_IPCP_INFO("**** Dins el codi sospitos *****");
 		*obj = new_obj;
 		obj->avoid_port = con.port_id;
 		res.code_ = rina::cdap_rib::CDAP_SUCCESS;
