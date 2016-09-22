@@ -862,7 +862,8 @@ FlowStateObject::FlowStateObject(unsigned int address_,
 
 FlowStateObject::~FlowStateObject()
 {
-	LOG_IPCP_INFO("Destructor called");
+	LOG_IPCP_INFO("Destructor of object %s called",
+		      getObjectName().c_str());
 }
 
 const std::string FlowStateObject::toString()
@@ -955,7 +956,13 @@ void FlowStateRIBObject::write(const rina::cdap_rib::con_handle_t &con,
 		obj->neighbor_address == new_obj.neighbor_address)
 	{
 		LOG_IPCP_INFO("**** Dins el codi sospitos *****");
-		*obj = new_obj;
+		obj->address = new_obj.address;
+		obj->neighbor_address = new_obj.neighbor_address;
+		obj->cost = new_obj.cost;
+		obj->state = new_obj.state;
+		obj->sequence_number = new_obj.sequence_number;
+		obj->age = new_obj.age;
+		obj->modified = true;
 		obj->avoid_port = con.port_id;
 		res.code_ = rina::cdap_rib::CDAP_SUCCESS;
 	}
