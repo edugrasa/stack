@@ -1285,7 +1285,7 @@ ComputeRoutingTimerTask::ComputeRoutingTimerTask(
 
 void ComputeRoutingTimerTask::run()
 {
-	lsr_policy_->routingTableUpdate();
+	//lsr_policy_->routingTableUpdate();
 
 	//Re-schedule
 	ComputeRoutingTimerTask * task = new ComputeRoutingTimerTask(
