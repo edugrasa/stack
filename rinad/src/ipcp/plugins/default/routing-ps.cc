@@ -862,8 +862,6 @@ FlowStateObject::FlowStateObject(unsigned int address_,
 
 FlowStateObject::~FlowStateObject()
 {
-	LOG_IPCP_INFO("Destructor of object %s with pointer %p called",
-		      getObjectName().c_str(), this);
 }
 
 const std::string FlowStateObject::toString()
