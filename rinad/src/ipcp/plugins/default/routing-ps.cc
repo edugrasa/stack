@@ -1418,6 +1418,12 @@ void FlowStateManager::prepareForPropagation(
 	}
 }
 
+void FlowStateManager::deprecateAllObjectsWithAddress(unsigned int address,
+						      bool neighbor)
+{
+	fsos->deprecateObjectsWithAddress(address, maximum_age, neighbor);
+}
+
 void FlowStateManager::encodeAllFSOs(rina::ser_obj_t& obj) const
 {
 	fsos->encodeAllFSOs(obj);
@@ -2045,6 +2051,12 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 
 	assert(ipc_process_->resource_allocator_->pduft_gen_ps);
 	ipc_process_->resource_allocator_->pduft_gen_ps->routingTableUpdated(rt);
+}
+
+void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbor)
+{
+	rina::ScopedLock g(lock_);
+	db_->deprecateAllObjectsWithAddress(address, neighbor);
 }
 
 // CLASS FlowStateObjectEncoder

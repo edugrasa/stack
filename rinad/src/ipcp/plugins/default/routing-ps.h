@@ -466,6 +466,8 @@ public:
 	void encodeAllFSOs(rina::ser_obj_t& obj) const;
 	void getAllFSOs(std::list<FlowStateObject>& list) const;
 	bool tableUpdate() const;
+	void deprecateAllObjectsWithAddress(unsigned int address,
+					    bool neighbor);
 
 	// accessors
 	void set_maximum_age(unsigned int max_age);
