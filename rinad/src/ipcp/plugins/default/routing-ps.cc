@@ -995,6 +995,9 @@ bool FlowStateObjects::addCheckedObject(const FlowStateObject& object)
 						    object.sequence_number,
 						    object.age);
 	objects[object.getObjectName()] = fso;
+	LOG_IPCP_INFO("Create new Flow State object with name %s and pointer %p",
+			fso->getObjectName(),
+			fso);
 	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(fso, manager_);
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*)IPCPFactory::getIPCP()->get_rib_daemon();
 	rib_daemon->addObjRIB(fso->getObjectName(), &rib_obj);
