@@ -1,5 +1,4 @@
 
-
 /*
  * Link-state routing policy
  *
@@ -107,11 +106,12 @@ public:
 	std::list<Edge *> edges_;
 	std::list<unsigned int> vertices_;
 
+	void set_flow_state_objects(const std::list<FlowStateObject>& flow_state_objects);
 	bool contains_vertex(unsigned int address) const;
 	bool contains_edge(unsigned int address1, unsigned int address2) const;
 
 	void print() const;
-	void set_flow_state_objects(const std::list<FlowStateObject>& flow_state_objects);
+
 private:
 	struct CheckedVertex {
 		unsigned int address_;
@@ -150,7 +150,7 @@ public:
 	//Compute the next hop for the node identified by source_address
 	//towards all the other nodes
 	virtual void computeRoutingTable(const Graph& graph,
-				 	 const std::list<FlowStateObject>& fsoList,
+	 	 	    	 	 const std::list<FlowStateObject>& fsoList,
 					 unsigned int source_address,
 					 std::list<rina::RoutingTableEntry *>& rt) = 0;
 
@@ -164,10 +164,9 @@ public:
 /// Contains the information of a predecessor, needed by the Dijkstra Algorithm
 class PredecessorInfo {
 public:
-	PredecessorInfo(unsigned int nPredecessor, unsigned int cost);
+	PredecessorInfo(unsigned int nPredecessor);
 
 	unsigned int predecessor_;
-	unsigned int cost_;
 };
 
 /// The routing algorithm used to compute the PDU forwarding table is a Shortest
@@ -178,7 +177,7 @@ class DijkstraAlgorithm : public IRoutingAlgorithm {
 public:
 	DijkstraAlgorithm();
 	void computeRoutingTable(const Graph& graph,
-				 const std::list<FlowStateObject>& fsoList,
+	 	 	    	 const std::list<FlowStateObject>& fsoList,
 				 unsigned int source_address,
 				 std::list<rina::RoutingTableEntry *>& rt);
 	void computeShortestDistances(const Graph& graph,
@@ -196,9 +195,7 @@ private:
 	int getShortestDistance(unsigned int destination) const;
 	bool isNeighbor(Edge * edge, unsigned int node) const;
 	bool isSettled(unsigned int node) const;
-	unsigned int getNextHop(unsigned int address,
-			        unsigned int sourceAddress,
-				unsigned int & cost);
+	unsigned int getNextHop(unsigned int address, unsigned int sourceAddress);
 	void clear();
 };
 
@@ -210,7 +207,7 @@ class ECMPDijkstraAlgorithm : public IRoutingAlgorithm {
 public:
 	ECMPDijkstraAlgorithm();
 	void computeRoutingTable(const Graph& graph,
-				 const std::list<FlowStateObject>& fsoList,
+	 	 	    	 const std::list<FlowStateObject>& fsoList,
 				 unsigned int source_address,
 				 std::list<rina::RoutingTableEntry *>& rt);
 	void computeShortestDistances(const Graph& graph,
@@ -248,8 +245,7 @@ public:
 	// Starting from the routing table computed by the routing algorithm,
 	// try to add (for each target nod) different next hops in addition to the
 	// existing ones, in order to improve resilency of the source node
-	virtual void fortifyRoutingTable(const Graph& graph,
-					 unsigned int source_address,
+	virtual void fortifyRoutingTable(const Graph& graph, unsigned int source_address,
 					 std::list<rina::RoutingTableEntry *>& rt) = 0;
 
 protected:
@@ -259,13 +255,11 @@ protected:
 class LoopFreeAlternateAlgorithm : public IResiliencyAlgorithm {
 public:
 	LoopFreeAlternateAlgorithm(IRoutingAlgorithm& ra);
-	void fortifyRoutingTable(const Graph& graph,
-				 unsigned int source_address,
-				 std::list<rina::RoutingTableEntry *>& rt);
+	void fortifyRoutingTable(const Graph& graph, unsigned int source_address,
+					 std::list<rina::RoutingTableEntry *>& rt);
 private:
 	void extendRoutingTableEntry(std::list<rina::RoutingTableEntry *>& rt,
-				     unsigned int target_address,
-				     unsigned int nexthop);
+				     unsigned int target_address, unsigned int nexthop);
 };
 
 /// The object exchanged between IPC Processes to disseminate the state of
@@ -284,114 +278,123 @@ public:
 			unsigned int age);
 	~FlowStateObject();
 	const std::string toString();
-	FlowStateObject& operator=(const FlowStateObject& other);
 	void deprecateObject(unsigned int max_age);
-	//std::string getKey();
-	std::string getObjectName() const;
-
+	//accessors
+	unsigned int get_address() const;
+	unsigned int get_neighboraddress() const;
+	unsigned int get_cost() const;
+	bool is_state() const;
+	unsigned int get_sequencenumber() const;
+	unsigned int get_age() const;
+	bool is_modified() const;
+	unsigned int get_avoidport() const;
+	bool is_beingerased() const;
+	std::string get_objectname() const;
+	void set_address(unsigned int address);
+	void set_neighboraddress(unsigned int neighbor_address);
+	void set_cost(unsigned int cost);
+	void has_state(bool state);
+	void set_sequencenumber(unsigned int sequence_number);
+	void set_age(unsigned int age);
+	void set_object_name(const std::string& name);
+	void has_modified(bool modified);
+	void set_avoidport(unsigned int avoid_port);
+	void has_beingerased(bool being_erased);
+	const std::string getKey() const;
+private:
 	// The address of the IPC Process
-	unsigned int address;
+	unsigned int address_;
 	// The address of the neighbor IPC Process
-	unsigned int neighbor_address;
+	unsigned int neighbor_address_;
 	// The port_id assigned by the neighbor IPC Process to the N-1 flow
-	unsigned int cost;
+	unsigned int cost_;
 	// Flow up (true) or down (false)
-	bool state;
+	bool state_;
 	// A sequence number to be able to discard old information
-	unsigned int sequence_number;
+	unsigned int sequence_number_;
 	// Age of this FSO (in seconds)
-	unsigned int age;
+	unsigned int age_;
 	// The object has been marked for propagation
-	bool modified;
+	bool modified_;
 	// Avoid port in the next propagation
-	int avoid_port;
+	int avoid_port_;
 	// The object is being erased
-	bool deprecated;
+	bool being_erased_;
 	// The name of the object in the RIB
-	//std::string object_name;
+	std::string object_name_;
 };
 
-class FlowStateObjects;
+class FlowStateManager;
 /// A single flow state object
 class FlowStateRIBObject: public rina::rib::RIBObj {
 public:
-	FlowStateRIBObject(FlowStateObjects * fsos,
-			   const std::string& fqn);
+	FlowStateRIBObject(FlowStateObject* new_obj, FlowStateManager *manager);
 	void read(const rina::cdap_rib::con_handle_t &con, const std::string& fqn,
 		const std::string& clas, const rina::cdap_rib::filt_info_t &filt,
 		const int invoke_id, rina::ser_obj_t &obj_reply, 
 		rina::cdap_rib::res_info_t& res);
+	bool delete_(const rina::cdap_rib::con_handle_t &con,
+		const std::string& fqn,	const std::string& clas,
+		const rina::cdap_rib::filt_info_t &filt,
+		const int invoke_id, rina::cdap_rib::res_info_t& res);
 	const std::string get_displayable_value() const;
+
+	FlowStateObject* obj;
 
 	const static std::string clazz_name;
 	const static std::string object_name_prefix;
+private:
+	FlowStateManager *manager;
+};
+
+class FlowStateObjects;
+class KillFlowStateObjectTimerTask : public rina::TimerTask {
+public:
+	KillFlowStateObjectTimerTask(FlowStateObjects *fsos, std::string fqn);
+	~KillFlowStateObjectTimerTask() throw(){};
+	void run();
 
 private:
 	std::string fqn_;
 	FlowStateObjects* fsos_;
 };
 
-class LinkStateRoutingPolicy;
-class KillFlowStateObjectTimerTask : public rina::TimerTask {
-public:
-	KillFlowStateObjectTimerTask(LinkStateRoutingPolicy *lsr,
-				     const std::string& fqn);
-	~KillFlowStateObjectTimerTask() throw(){};
-	void run();
-
-private:
-	std::string fqn_;
-	LinkStateRoutingPolicy* lsr_;
-};
-
 class FlowStateRIBObjects;
-
-/// The subset of the RIB that contains all the Flow State objects known by the IPC Process.
-/// It exists only in the PDU forwarding table generator. It is used as an input to calculate
-/// the routing and forwarding tables. The FSDB is generated by the operations on FSOs received
-/// through CDAP messages or created by the resource allocator. The FSOs in the FSDB contain
-/// the same information as the one formerly described in the FSO subsection, plus a list of
-/// port-ids of N-1 management flows the FSOs should be sent to. Periodically the FSDB is checked
-/// to look for FSOs to be propagated. Once FSOs have been written to the corresponding N-1 flows,
-/// the list of port-ids is emptied. The list is updated when events that required the propagation
-/// of FSO occur (such as local events notifying changes on N-1 flows or remote operations on the
-/// FSDB through CDAP).
 class FlowStateObjects
 {
 public:
-	FlowStateObjects(LinkStateRoutingPolicy * lsr);
+	FlowStateObjects(FlowStateManager* manager);
 	~FlowStateObjects();
 	bool addObject(const FlowStateObject& object);
 	void deprecateObject(const std::string& fqn, 
 			     unsigned int max_age);
-	void deprecateObjects(unsigned int neigh_address, unsigned int address,
+	void deprecateObjects(unsigned int neigh_address,
+			      unsigned int address,
 			      unsigned int max_age);
 	void deprecateObjectsWithAddress(unsigned int address,
 					 unsigned int max_age,
 					 bool neighbor);
-	bool getObjectCopy(const std::string& fqn,
-			   FlowStateObject& object);
-	void modifyObject(const std::string& fqn,
-			  FlowStateObject& object);
-	void getModifiedFSOs(std::list<FlowStateObject>& result);
+	FlowStateObject * getObject(const std::string& fqn);
+	void getModifiedFSOs(std::list<FlowStateObject *>& result);
 	void getAllFSOs(std::list<FlowStateObject>& result);
 	void incrementAge(unsigned int max_age,
-			  unsigned long wait_until_remove,
 			  rina::Timer* timer);
 	void updateObject(const std::string& fqn, 
 			  unsigned int avoid_port);
 	void encodeAllFSOs(rina::ser_obj_t& obj);
-	bool is_modified();
+	bool is_modified() const;
 	void has_modified(bool modified);
-	void removeObject(const std::string& fqn);
-
+	void set_wait_until_remove_object(unsigned int wait_object);
 private:
+	void removeObject(const std::string& fqn);
 	void addCheckedObject(const FlowStateObject& object);
 	std::map<std::string,FlowStateObject*> objects;
 	//Signals a modification in the FlowStateDB
 	bool modified_;
+	FlowStateManager* manager_;
+	unsigned int wait_until_remove_object;
 	rina::Lockable lock;
-	LinkStateRoutingPolicy * lsr_;
+	friend class KillFlowStateObjectTimerTask;
 };
 
 /// A container of flow state objects. This is the RIB target object
@@ -400,7 +403,8 @@ private:
 // TODO: destructor
 class FlowStateRIBObjects: public rina::rib::RIBObj {
 public:
-	FlowStateRIBObjects(LinkStateRoutingPolicy *lsr);
+	FlowStateRIBObjects(FlowStateObjects* new_objs,
+			    FlowStateManager *manager);
 	const std::string toString();
 	void read(const rina::cdap_rib::con_handle_t &con,
 		  const std::string& fqn,
@@ -420,9 +424,56 @@ public:
 
 	const static std::string clazz_name;
 	const static std::string object_name;
-
 private:
-	LinkStateRoutingPolicy *lsr_;
+	FlowStateObjects *objs;
+	FlowStateManager *manager;
+};
+
+/// The subset of the RIB that contains all the Flow State objects known by the IPC Process.
+/// It exists only in the PDU forwarding table generator. It is used as an input to calculate
+/// the routing and forwarding tables. The FSDB is generated by the operations on FSOs received
+/// through CDAP messages or created by the resource allocator. The FSOs in the FSDB contain
+/// the same information as the one formerly described in the FSO subsection, plus a list of
+/// port-ids of N-1 management flows the FSOs should be sent to. Periodically the FSDB is checked
+/// to look for FSOs to be propagated. Once FSOs have been written to the corresponding N-1 flows,
+/// the list of port-ids is emptied. The list is updated when events that required the propagation
+/// of FSO occur (such as local events notifying changes on N-1 flows or remote operations on the
+/// FSDB through CDAP).
+class FlowStateManager {
+public:
+	static const int NO_AVOID_PORT;
+	static const long WAIT_UNTIL_REMOVE_OBJECT;
+	FlowStateManager(rina::Timer* new_timer,
+			unsigned int max_age);
+	~FlowStateManager();
+	//void setAvoidPort(int avoidPort);
+	/// add a FlowStateObject
+	bool addNewFSO(unsigned int address,
+		       unsigned int neighborAddress,
+		       unsigned int cost,
+		       int avoid_port);
+	/// Set a FSO ready for removal
+	void deprecateObject(std::string fqn);
+	void deprecateObjectsNeighbor(unsigned int neigh_address,
+	                              unsigned int address);
+	std::map <int, std::list<FlowStateObject*> > prepareForPropagation
+	        (const std::list<rina::FlowInformation>& flows);
+	void incrementAge();
+	void updateObjects(const std::list<FlowStateObject>& newObjects,
+			   unsigned int avoidPort,
+			   unsigned int address);
+	void prepareForPropagation(std::map<int, std::list<FlowStateObject> >& to_propagate) const;
+	void encodeAllFSOs(rina::ser_obj_t& obj) const;
+	void getAllFSOs(std::list<FlowStateObject>& list) const;
+	bool tableUpdate() const;
+
+	// accessors
+	void set_maximum_age(unsigned int max_age);
+	void set_wait_until_remove_object(unsigned int wait_object);
+private:
+	FlowStateObjects* fsos;
+	unsigned int maximum_age;
+	rina::Timer* timer;
 };
 
 class ComputeRoutingTimerTask : public rina::TimerTask {
@@ -513,7 +564,6 @@ public:
         static const int WAIT_UNTIL_AGE_INCREMENT_DEFAULT = 997;
         static const long WAIT_UNTIL_REMOVE_OBJECT_DEFAULT = 2300;
         static const long WAIT_UNTIL_DEPRECATE_OLD_ADDRESS_DEFAULT = 10000;
-        static const int NO_AVOID_PORT = -1;
         static const std::string DIJKSTRA_ALG;
         static const std::string ECMP_DIJKSTRA_ALG;
 
@@ -556,14 +606,6 @@ public:
 	/// Deprecate all LSOs containing the address passed to the method
 	void expireOldAddress(unsigned int address, bool neighbor);
 
-	/// Remove flow state object from database
-	void removeFlowStateObject(const std::string& fqn);
-
-	/// Update flow state objects based on CDAP message from neighbor IPCP
-	void updateObjects(const std::list<FlowStateObject>& newObjects,
-			   unsigned int avoidPort,
-		           unsigned int address);
-
 	rina::Timer *timer_;
 private:
 	static const int MAXIMUM_BUFFER_SIZE;
@@ -571,13 +613,13 @@ private:
 	IPCPRIBDaemon * rib_daemon_;
 	IRoutingAlgorithm * routing_algorithm_;
 	IResiliencyAlgorithm * resiliency_algorithm_;
-	unsigned long wait_until_deprecate_address_;
+	unsigned int wait_until_deprecate_address_;
+	unsigned int source_vertex_;
+	unsigned int maximum_age_;
 	bool test_;
-	//FlowStateManager *db_;
+	FlowStateManager *db_;
 	rina::Lockable lock_;
-	FlowStateObjects* fsos;
-	unsigned int maximum_age;
-	unsigned long wait_until_remove_obj;
+
 
 	/// If a flow allocation is launched before the enrollment is finished, the flow
 	/// allocation procedure of the PDU Forwarding table must wait. Otherwise it will
@@ -647,5 +689,3 @@ public:
 }
 
 #endif
-
-
