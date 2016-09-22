@@ -1065,7 +1065,7 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 	LOG_IPCP_INFO("Object name before: %s", it->second->getObjectName().c_str());
 
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*) IPCPFactory::getIPCP()->get_rib_daemon();
-	rib_daemon->removeObjRIB(fqn);
+	rib_daemon->removeObjRIB(it->second->getObjectName());
 
 	LOG_IPCP_INFO("Object name after: %s", it->second->getObjectName().c_str());
 
@@ -1417,7 +1417,6 @@ ComputeRoutingTimerTask::ComputeRoutingTimerTask(
 
 void ComputeRoutingTimerTask::run()
 {
-	LOG_IPCP_INFO("Compute routing timer task running");
 	lsr_policy_->routingTableUpdate();
 
 	//Re-schedule
@@ -1425,7 +1424,6 @@ void ComputeRoutingTimerTask::run()
 			lsr_policy_, delay_);
 
 	lsr_policy_->timer_->scheduleTask(task, delay_);
-	LOG_IPCP_INFO("Compute routing timer task done");
 }
 
 KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fsos,
@@ -1437,9 +1435,7 @@ KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fso
 
 void KillFlowStateObjectTimerTask::run()
 {
-	LOG_IPCP_INFO("Kill flow state object timer task running");
 	fsos_->removeObject(fqn_);
-	LOG_IPCP_INFO("Kill flow state object timer task done");
 }
 
 PropagateFSODBTimerTask::PropagateFSODBTimerTask(
@@ -1451,14 +1447,12 @@ PropagateFSODBTimerTask::PropagateFSODBTimerTask(
 
 void PropagateFSODBTimerTask::run()
 {
-	LOG_IPCP_INFO("Propagate FSDB timer task running");
 	lsr_policy_->propagateFSDB();
 
 	//Re-schedule
 	PropagateFSODBTimerTask * task = new PropagateFSODBTimerTask(
 			lsr_policy_, delay_);
 	lsr_policy_->timer_->scheduleTask(task, delay_);
-	LOG_IPCP_INFO("Propagate FSDB timer task done");
 }
 
 UpdateAgeTimerTask::UpdateAgeTimerTask(
@@ -1470,14 +1464,12 @@ UpdateAgeTimerTask::UpdateAgeTimerTask(
 
 void UpdateAgeTimerTask::run()
 {
-	LOG_IPCP_INFO("Update age timer task running");
 	lsr_policy_->updateAge();
 
 	//Re-schedule
 	UpdateAgeTimerTask * task = new UpdateAgeTimerTask(lsr_policy_,
 			delay_);
 	lsr_policy_->timer_->scheduleTask(task, delay_);
-	LOG_IPCP_INFO("Update age timer task done");
 }
 
 ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
@@ -1491,9 +1483,7 @@ ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * ls
 
 void ExpireOldAddressTimerTask::run()
 {
-	LOG_IPCP_INFO("Expire old address timer task running");
 	lsr_policy_->expireOldAddress(address, neighbor);
-	LOG_IPCP_INFO("Expire old address timer task done");
 }
 
 // CLASS LinkStateRoutingPolicy
