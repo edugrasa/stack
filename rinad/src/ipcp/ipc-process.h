@@ -65,6 +65,9 @@ public:
         void set_address(unsigned int address);
         void expire_old_address(void);
 	unsigned int get_old_address();
+	unsigned int get_active_address();
+	void activate_new_address(void);
+	bool check_address_is_mine(unsigned int address);
         unsigned int getAdressByname(const rina::ApplicationProcessNamingInformation& name);
         void processAssignToDIFRequestEvent(const rina::AssignToDIFRequestEvent& event);
         void processAssignToDIFResponseEvent(const rina::AssignToDIFResponseEvent& event);
@@ -113,6 +116,8 @@ private:
 	rina::DIFInformation dif_information_;
 	KernelSyncTrigger * kernel_sync;
 	unsigned int old_address;
+	bool address_change_period;
+	bool use_new_address;
 	rina::Timer timer;
 };
 
@@ -120,6 +125,16 @@ class ExpireOldIPCPAddressTimerTask: public rina::TimerTask {
 public:
 	ExpireOldIPCPAddressTimerTask(IPCProcessImpl * ipcp);
 	~ExpireOldIPCPAddressTimerTask() throw() {};
+	void run();
+
+private:
+	IPCProcessImpl * ipcp;
+};
+
+class UseNewIPCPAddressTimerTask: public rina::TimerTask {
+public:
+	UseNewIPCPAddressTimerTask(IPCProcessImpl * ipcp);
+	~UseNewIPCPAddressTimerTask() throw() {};
 	void run();
 
 private:

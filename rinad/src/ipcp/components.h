@@ -468,6 +468,8 @@ public:
 	virtual void set_dif_information(const rina::DIFInformation& dif_information) = 0;
 	virtual const std::list<rina::Neighbor> get_neighbors() const = 0;
 	virtual unsigned int get_old_address() = 0;
+	virtual unsigned int get_active_address() = 0;
+	virtual bool check_address_is_mine(unsigned int address) = 0;
 };
 
 } //namespace rinad

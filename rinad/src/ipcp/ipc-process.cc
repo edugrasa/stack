@@ -99,6 +99,8 @@ IPCProcessImpl::IPCProcessImpl(const rina::ApplicationProcessNamingInformation& 
         lock_ = new rina::Lockable();
         kernel_sync = NULL;
         old_address = 0;
+        address_change_period = false;
+        use_new_address = false;
 
         // Initialize application entities
         delimiter_ = 0; //TODO initialize Delimiter once it is implemented
@@ -178,11 +180,16 @@ void IPCProcessImpl::eventHappened(rina::InternalEvent * event)
 
 void IPCProcessImpl::addressChange(rina::AddressChangeEvent * event)
 {
-	ExpireOldIPCPAddressTimerTask * task = 0;
+	rina::TimerTask * task = 0;
 
 	rina::ScopedLock g(*lock_);
 	old_address = event->old_address;
 	dif_information_.dif_configuration_.address_ = event->new_address;
+	address_change_period = true;
+	use_new_address = false;
+
+	task = new UseNewIPCPAddressTimerTask(this);
+	timer.scheduleTask(task, event->use_new_timeout);
 
 	task = new ExpireOldIPCPAddressTimerTask(this);
 	timer.scheduleTask(task, event->deprecate_old_timeout);
@@ -230,6 +237,18 @@ unsigned int IPCProcessImpl::get_address() const {
 	return dif_information_.dif_configuration_.address_;
 }
 
+unsigned int IPCProcessImpl::get_active_address() {
+	rina::ScopedLock g(*lock_);
+	if (state != ASSIGNED_TO_DIF) {
+		return 0;
+	}
+
+	if (address_change_period && !use_new_address)
+		return old_address;
+
+	return dif_information_.dif_configuration_.address_;
+}
+
 void IPCProcessImpl::set_address(unsigned int address) {
 	rina::ScopedLock g(*lock_);
 	dif_information_.dif_configuration_.address_ = address;
@@ -238,7 +257,28 @@ void IPCProcessImpl::set_address(unsigned int address) {
 void IPCProcessImpl::expire_old_address()
 {
 	rina::ScopedLock g(*lock_);
+	address_change_period = false;
+	use_new_address = false;
 	old_address = 0;
+}
+
+void IPCProcessImpl::activate_new_address(void)
+{
+	rina::ScopedLock g(*lock_);
+	use_new_address = true;
+}
+
+bool IPCProcessImpl::check_address_is_mine(unsigned int address)
+{
+	rina::ScopedLock g(*lock_);
+	if (address == 0)
+		return false;
+
+	if (address == old_address ||
+			address == dif_information_.dif_configuration_.address_)
+		return true;
+
+	return false;
 }
 
 unsigned int IPCProcessImpl::get_old_address()
@@ -860,6 +900,17 @@ ExpireOldIPCPAddressTimerTask::ExpireOldIPCPAddressTimerTask(IPCProcessImpl * ip
 void ExpireOldIPCPAddressTimerTask::run()
 {
 	ipcp->expire_old_address();
+}
+
+//Class UseNewIPCPAddress
+UseNewIPCPAddressTimerTask::UseNewIPCPAddressTimerTask(IPCProcessImpl * ipc_process)
+{
+	ipcp = ipc_process;
+}
+
+void UseNewIPCPAddressTimerTask::run()
+{
+	ipcp->activate_new_address();
 }
 
 //Class IPCPFactory
