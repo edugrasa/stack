@@ -977,12 +977,10 @@ const std::string FlowStateObject::getKey() const
 const std::string FlowStateRIBObject::clazz_name = "FlowStateObject";
 const std::string FlowStateRIBObject::object_name_prefix = "/resalloc/fsos/key=";
 
-FlowStateRIBObject::FlowStateRIBObject(FlowStateObject* new_obj,
-	FlowStateManager* new_manager):
+FlowStateRIBObject::FlowStateRIBObject(FlowStateObject* new_obj):
 rina::rib::RIBObj(clazz_name)
 {
 	obj = new_obj;
-	manager = new_manager;
 }
 
 void FlowStateRIBObject::read(const rina::cdap_rib::con_handle_t &con, 
@@ -996,26 +994,17 @@ void FlowStateRIBObject::read(const rina::cdap_rib::con_handle_t &con,
 	res.code_ = rina::cdap_rib::CDAP_SUCCESS;
 }
 
-bool FlowStateRIBObject::delete_(const rina::cdap_rib::con_handle_t &con,
-	const std::string& fqn,	const std::string& clas,
-	const rina::cdap_rib::filt_info_t &filt,
-	const int invoke_id, rina::cdap_rib::res_info_t& res)
-{
-	manager->deprecateObject(fqn);
-	return false;
-}
-
 const std::string FlowStateRIBObject::get_displayable_value() const
 {
 	return obj->toString();
 }
 
 // CLASS FlowStateObjects
-FlowStateObjects::FlowStateObjects(FlowStateManager* manager)
+FlowStateObjects::FlowStateObjects(LinkStateRoutingPolicy * ps)
 {
 	modified_ = false;
-	manager_ = manager;
-	rina::rib::RIBObj *rib_objects = new FlowStateRIBObjects(this, manager_);
+	ps_ = ps;
+	rina::rib::RIBObj *rib_objects = new FlowStateRIBObjects(this, ps);
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*)IPCPFactory::getIPCP()
 		->get_rib_daemon();
 	rib_daemon->addObjRIB(FlowStateRIBObjects::object_name, &rib_objects);
@@ -1066,7 +1055,7 @@ void FlowStateObjects::addCheckedObject(const FlowStateObject& object)
 						    object.get_sequencenumber(),
 						    object.get_age());
 	objects[object.get_objectname()] = fso;
-	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(fso, manager_);
+	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(fso);
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*)IPCPFactory::getIPCP()->get_rib_daemon();
 	rib_daemon->addObjRIB(fso->get_objectname(), &rib_obj);
 	modified_ = true;
@@ -1196,7 +1185,7 @@ void FlowStateObjects::incrementAge(unsigned int max_age, rina::Timer* timer)
 			LOG_IPCP_DBG("Object to erase age: %d", it->second->get_age());
 			it->second->has_beingerased(true);
 			KillFlowStateObjectTimerTask* ksttask =
-				new KillFlowStateObjectTimerTask(this, it->second->get_objectname());
+				new KillFlowStateObjectTimerTask(ps_, it->second->get_objectname());
 
 			timer->scheduleTask(ksttask, wait_until_remove_object);
 		}
@@ -1253,11 +1242,11 @@ const std::string FlowStateRIBObjects::clazz_name = "FlowStateObjects";
 const std::string FlowStateRIBObjects::object_name= "/resalloc/fsos";
 
 FlowStateRIBObjects::FlowStateRIBObjects(FlowStateObjects* new_objs,
-					 FlowStateManager* new_manager) :
+					 LinkStateRoutingPolicy* ps) :
 		rina::rib::RIBObj(clazz_name)
 {
 	objs = new_objs;
-	manager = new_manager;
+	ps_ = ps;
 }
 
 void FlowStateRIBObjects::read(const rina::cdap_rib::con_handle_t &con,
@@ -1283,19 +1272,20 @@ void FlowStateRIBObjects::write(const rina::cdap_rib::con_handle_t &con,
 	FlowStateObjectListEncoder encoder;
 	std::list<FlowStateObject> new_objects;
 	encoder.decode(obj_req, new_objects);
-	manager->updateObjects(new_objects,
-			       con.port_id,
-			       IPCPFactory::getIPCP()->get_address());
+	ps_->updateObjects(new_objects,
+			   con.port_id);
 }
 
 // CLASS FlowStateManager
 const int FlowStateManager::NO_AVOID_PORT = -1;
 const long FlowStateManager::WAIT_UNTIL_REMOVE_OBJECT = 23000;
 
-FlowStateManager::FlowStateManager(rina::Timer *new_timer, unsigned int max_age)
+FlowStateManager::FlowStateManager(rina::Timer *new_timer,
+				   unsigned int max_age,
+				   LinkStateRoutingPolicy * ps)
 {
 	maximum_age = max_age;
-	fsos = new FlowStateObjects(this);
+	fsos = new FlowStateObjects(ps);
 	timer = new_timer;
 }
 
@@ -1424,6 +1414,11 @@ void FlowStateManager::deprecateAllObjectsWithAddress(unsigned int address,
 	fsos->deprecateObjectsWithAddress(address, maximum_age, neighbor);
 }
 
+void FlowStateManager::removeObject(const std::string& fqn)
+{
+	fsos->removeObject(fqn);
+}
+
 void FlowStateManager::encodeAllFSOs(rina::ser_obj_t& obj) const
 {
 	fsos->encodeAllFSOs(obj);
@@ -1478,15 +1473,15 @@ void ComputeRoutingTimerTask::run()
 	lsr_policy_->timer_->scheduleTask(task, delay_);
 }
 
-KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(FlowStateObjects *fsos, std::string fqn)
+KillFlowStateObjectTimerTask::KillFlowStateObjectTimerTask(LinkStateRoutingPolicy *ps, std::string fqn)
 {
-	fsos_ = fsos;
+	ps_ = ps;
 	fqn_ = fqn;
 }
 
 void KillFlowStateObjectTimerTask::run()
 {
-	fsos_->removeObject(fqn_);
+	ps_->removeFlowStateObject(fqn_);
 }
 
 PropagateFSODBTimerTask::PropagateFSODBTimerTask(
@@ -1564,7 +1559,7 @@ LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 
 	subscribeToEvents();
 	timer_ = new rina::Timer();
-	db_ = new FlowStateManager(timer_, UINT_MAX);
+	db_ = new FlowStateManager(timer_, UINT_MAX, this);
 }
 
 LinkStateRoutingPolicy::~LinkStateRoutingPolicy()
@@ -1996,8 +1991,7 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 		return;
 	}
 
-	std::list<FlowStateObject> flow_state_objects;
-	db_->getAllFSOs(flow_state_objects);
+	db_->getAllFSOs(all_fsos);
 
 	address = ipc_process_->get_address();
 	old_address = ipc_process_->get_old_address();
@@ -2057,6 +2051,21 @@ void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbo
 {
 	rina::ScopedLock g(lock_);
 	db_->deprecateAllObjectsWithAddress(address, neighbor);
+}
+
+void LinkStateRoutingPolicy::updateObjects(const std::list<FlowStateObject>& newObjects,
+		   	   	   	   unsigned int avoidPort)
+{
+	rina::ScopedLock g(lock_);
+	db_->updateObjects(newObjects,
+			   avoidPort,
+			   IPCPFactory::getIPCP()->get_address());
+}
+
+void LinkStateRoutingPolicy::removeFlowStateObject(const std::string& fqn)
+{
+	rina::ScopedLock g(lock_);
+	db_->removeObject(fqn);
 }
 
 // CLASS FlowStateObjectEncoder

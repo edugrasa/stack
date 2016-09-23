@@ -328,7 +328,7 @@ class FlowStateManager;
 /// A single flow state object
 class FlowStateRIBObject: public rina::rib::RIBObj {
 public:
-	FlowStateRIBObject(FlowStateObject* new_obj, FlowStateManager *manager);
+	FlowStateRIBObject(FlowStateObject* new_obj);
 	void read(const rina::cdap_rib::con_handle_t &con, const std::string& fqn,
 		const std::string& clas, const rina::cdap_rib::filt_info_t &filt,
 		const int invoke_id, rina::ser_obj_t &obj_reply, 
@@ -343,27 +343,25 @@ public:
 
 	const static std::string clazz_name;
 	const static std::string object_name_prefix;
-private:
-	FlowStateManager *manager;
 };
 
 class FlowStateObjects;
 class KillFlowStateObjectTimerTask : public rina::TimerTask {
 public:
-	KillFlowStateObjectTimerTask(FlowStateObjects *fsos, std::string fqn);
+	KillFlowStateObjectTimerTask(LinkStateRoutingPolicy *ps, std::string fqn);
 	~KillFlowStateObjectTimerTask() throw(){};
 	void run();
 
 private:
 	std::string fqn_;
-	FlowStateObjects* fsos_;
+	LinkStateRoutingPolicy* ps_;
 };
 
 class FlowStateRIBObjects;
 class FlowStateObjects
 {
 public:
-	FlowStateObjects(FlowStateManager* manager);
+	FlowStateObjects(LinkStateRoutingPolicy * ps);
 	~FlowStateObjects();
 	bool addObject(const FlowStateObject& object);
 	void deprecateObject(const std::string& fqn, 
@@ -385,16 +383,16 @@ public:
 	bool is_modified() const;
 	void has_modified(bool modified);
 	void set_wait_until_remove_object(unsigned int wait_object);
-private:
 	void removeObject(const std::string& fqn);
+
+private:
 	void addCheckedObject(const FlowStateObject& object);
 	std::map<std::string,FlowStateObject*> objects;
 	//Signals a modification in the FlowStateDB
 	bool modified_;
-	FlowStateManager* manager_;
+	LinkStateRoutingPolicy * ps_;
 	unsigned int wait_until_remove_object;
 	rina::Lockable lock;
-	friend class KillFlowStateObjectTimerTask;
 };
 
 /// A container of flow state objects. This is the RIB target object
@@ -404,7 +402,7 @@ private:
 class FlowStateRIBObjects: public rina::rib::RIBObj {
 public:
 	FlowStateRIBObjects(FlowStateObjects* new_objs,
-			    FlowStateManager *manager);
+			    LinkStateRoutingPolicy * ps);
 	const std::string toString();
 	void read(const rina::cdap_rib::con_handle_t &con,
 		  const std::string& fqn,
@@ -426,7 +424,7 @@ public:
 	const static std::string object_name;
 private:
 	FlowStateObjects *objs;
-	FlowStateManager *manager;
+	LinkStateRoutingPolicy * ps_;
 };
 
 /// The subset of the RIB that contains all the Flow State objects known by the IPC Process.
@@ -444,7 +442,8 @@ public:
 	static const int NO_AVOID_PORT;
 	static const long WAIT_UNTIL_REMOVE_OBJECT;
 	FlowStateManager(rina::Timer* new_timer,
-			unsigned int max_age);
+			unsigned int max_age,
+			LinkStateRoutingPolicy * ps);
 	~FlowStateManager();
 	//void setAvoidPort(int avoidPort);
 	/// add a FlowStateObject
@@ -468,6 +467,7 @@ public:
 	bool tableUpdate() const;
 	void deprecateAllObjectsWithAddress(unsigned int address,
 					    bool neighbor);
+	void removeObject(const std::string& fqn);
 
 	// accessors
 	void set_maximum_age(unsigned int max_age);
@@ -607,6 +607,11 @@ public:
 
 	/// Deprecate all LSOs containing the address passed to the method
 	void expireOldAddress(unsigned int address, bool neighbor);
+
+	void updateObjects(const std::list<FlowStateObject>& newObjects,
+			   unsigned int avoidPort);
+
+	void removeFlowStateObject(const std::string& fqn);
 
 	rina::Timer *timer_;
 private:
