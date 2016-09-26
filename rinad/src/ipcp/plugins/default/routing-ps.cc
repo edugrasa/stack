@@ -1734,9 +1734,9 @@ void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAdd
 
 	db_->getAllFSOs(all_fsos);
 
-	LOG_IPCP_DBG("Neighbor address changed: old address %d, new address %d",
-		     event->old_address,
-		     event->new_address);
+	LOG_IPCP_INFO("Neighbor address changed: old address %d, new address %d",
+		      event->old_address,
+		      event->new_address);
 	//Add LSOs to reflect the routes to the new address
 	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
 			it != all_fsos.end(); ++it) {
@@ -1961,8 +1961,7 @@ void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>
 		current = *it;
 		ss << "Dest. address: " << current->address
 		   << "; QoS-id: " << current->qosId
-		   << "; Cost: " << current->cost
-		   << "; Next hop addresses: ";
+		   << "; Next hops: ";
 		for (jt = current->nextHopAddresses.begin();
 				jt != current->nextHopAddresses.end(); ++jt) {
 			ss << jt->alts.front() << "; ";
