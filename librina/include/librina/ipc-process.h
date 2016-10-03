@@ -832,20 +832,28 @@ struct DTPInformation {
 	const std::string toString() const;
 };
 
+struct IPCPNameAddresses {
+	/* The name of the IPCP */
+	std::string name;
+
+	/* The active addresses of the IPCP */
+	std::list<unsigned int> addresses;
+};
+
 struct NHopAltList {
 	/** Next hop and its alternates */
-	std::list<unsigned int> alts;
+	std::list<IPCPNameAddresses> alts;
 
 	NHopAltList() { }
-	NHopAltList(unsigned int x) { alts.push_back(x); }
-	void add_alt(unsigned int x) { alts.push_back(x); }
+	NHopAltList(const IPCPNameAddresses& x) { alts.push_back(x); }
+	void add_alt(const IPCPNameAddresses& x) { alts.push_back(x); }
 };
 
 /// Models an entry of the routing table
 class RoutingTableEntry {
 public:
-	/** The destination address */
-	unsigned int address;
+	/** The destination IPCP name and addresses */
+	IPCPNameAddresses destination;
 
 	/** The qos-id */
 	unsigned int qosId;
@@ -854,7 +862,7 @@ public:
 	unsigned int cost;
 
 	/** The next hop addresses */
-	std::list<NHopAltList> nextHopAddresses;
+	std::list<NHopAltList> nextHopNames;
 
 	RoutingTableEntry();
 	const std::string getKey() const;

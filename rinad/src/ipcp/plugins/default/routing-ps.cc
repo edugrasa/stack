@@ -87,55 +87,57 @@ destroyRoutingComponentPs(rina::IPolicySet * ps)
         }
 }
 
-Edge::Edge(unsigned int address1, unsigned int address2, int weight)
+Edge::Edge(const std::string& name1,
+	   const std::string& name2,
+	   int weight)
 {
-	address1_ = address1;
-	address2_ = address2;
+	name1_ = name1;
+	name2_ = name2;
 	weight_ = weight;
 }
 
-bool Edge::isVertexIn(unsigned int address) const
+bool Edge::isVertexIn(const std::string& name) const
 {
-	if (address == address1_) {
+	if (name == name1_) {
 		return true;
 	}
 
-	if (address == address2_) {
+	if (name == name2_) {
 		return true;
 	}
 
 	return false;
 }
 
-unsigned int Edge::getOtherEndpoint(unsigned int address)
+std::string Edge::getOtherEndpoint(const std::string& name)
 {
-	if (address == address1_) {
-		return address2_;
+	if (name == name1_) {
+		return name2_;
 	}
 
-	if (address == address2_) {
-		return address1_;
+	if (name == name2_) {
+		return name1_;
 	}
 
 	return 0;
 }
 
-std::list<unsigned int> Edge::getEndpoints()
+std::list<std::string> Edge::getEndpoints()
 {
-	std::list<unsigned int> result;
-	result.push_back(address1_);
-	result.push_back(address2_);
+	std::list<std::string> result;
+	result.push_back(name1_);
+	result.push_back(name2_);
 
 	return result;
 }
 
 bool Edge::operator==(const Edge & other) const
 {
-	if (!isVertexIn(other.address1_)) {
+	if (!isVertexIn(other.name1_)) {
 		return false;
 	}
 
-	if (!isVertexIn(other.address2_)) {
+	if (!isVertexIn(other.name2_)) {
 		return false;
 	}
 
@@ -155,7 +157,7 @@ const std::string Edge::toString() const
 {
 	std::stringstream ss;
 
-	ss << address1_ << " " << address2_;
+	ss << name1_ << " " << name2_;
 	return ss.str();
 }
 
@@ -193,21 +195,21 @@ void Graph::init_vertices()
 	std::list<FlowStateObject>::const_iterator it;
 	for (it = flow_state_objects_.begin(); it != flow_state_objects_.end();
 			++it) {
-		if (!contains_vertex(it->get_address())) {
-			vertices_.push_back(it->get_address());
+		if (!contains_vertex(it->get_name())) {
+			vertices_.push_back(it->get_name());
 		}
 
-		if (!contains_vertex(it->get_neighboraddress())) {
-			vertices_.push_back(it->get_neighboraddress());
+		if (!contains_vertex(it->get_neighborname())) {
+			vertices_.push_back(it->get_neighborname());
 		}
 	}
 }
 
-bool Graph::contains_vertex(unsigned int address) const
+bool Graph::contains_vertex(const std::string& name) const
 {
-	std::list<unsigned int>::const_iterator it;
+	std::list<std::string>::const_iterator it;
 	for (it = vertices_.begin(); it != vertices_.end(); ++it) {
-		if ((*it) == address) {
+		if ((*it) == name) {
 			return true;
 		}
 	}
@@ -215,11 +217,12 @@ bool Graph::contains_vertex(unsigned int address) const
 	return false;
 }
 
-bool Graph::contains_edge(unsigned int address1, unsigned int address2) const
+bool Graph::contains_edge(const std::string& name1,
+			  const std::string& name2) const
 {
 	for(std::list<Edge *>::const_iterator eit = edges_.begin();
 					eit != edges_.end(); ++eit) {
-		if (*(*eit) == Edge(address1, address2, (*eit)->weight_)) {
+		if (*(*eit) == Edge(name1, name2, (*eit)->weight_)) {
 			return true;
 		}
 	}
@@ -229,7 +232,7 @@ bool Graph::contains_edge(unsigned int address1, unsigned int address2) const
 
 void Graph::init_edges()
 {
-	std::list<unsigned int>::const_iterator it;
+	std::list<std::string>::const_iterator it;
 	std::list<FlowStateObject>::const_iterator flowIt;
 
 	for (it = vertices_.begin(); it != vertices_.end(); ++it) {
@@ -247,39 +250,39 @@ void Graph::init_edges()
 		LOG_IPCP_DBG("Processing flow state object: %s",
 				flowIt->get_objectname().c_str());
 
-		origin = get_checked_vertex(flowIt->get_address());
+		origin = get_checked_vertex(flowIt->get_name());
 		if (origin == 0) {
-			LOG_IPCP_WARN("Could not find checked vertex for address %ud",
-					flowIt->get_address());
+			LOG_IPCP_WARN("Could not find checked vertex for address %s",
+					flowIt->get_name().c_str());
 			continue;
 		}
 
-		dest = get_checked_vertex(flowIt->get_neighboraddress());
+		dest = get_checked_vertex(flowIt->get_neighborname());
 		if (dest == 0) {
-			LOG_IPCP_WARN("Could not find checked vertex for address %ud",
-					flowIt->get_neighboraddress());
+			LOG_IPCP_WARN("Could not find checked vertex for address %s",
+					flowIt->get_neighborname().c_str());
 			continue;
 		}
 
-		if (origin->connection_contains_address(dest->address_)
-				&& dest->connection_contains_address(origin->address_)) {
-			edges_.push_back(new Edge(origin->address_,
-						  dest->address_,
+		if (origin->connection_contains_name(dest->name_)
+				&& dest->connection_contains_name(origin->name_)) {
+			edges_.push_back(new Edge(origin->name_,
+						  dest->name_,
 						  1));
-			origin->connections.remove(dest->address_);
-			dest->connections.remove(origin->address_);
+			origin->connections.remove(dest->name_);
+			dest->connections.remove(origin->name_);
 		} else {
-			origin->connections.push_back(dest->address_);
-			dest->connections.push_back(origin->address_);
+			origin->connections.push_back(dest->name_);
+			dest->connections.push_back(origin->name_);
 		}
 	}
 }
 
-Graph::CheckedVertex * Graph::get_checked_vertex(unsigned int address) const
+Graph::CheckedVertex * Graph::get_checked_vertex(const std::string& name) const
 {
 	std::list<Graph::CheckedVertex *>::const_iterator it;
 	for (it = checked_vertices_.begin(); it != checked_vertices_.end(); ++it) {
-		if ((*it)->address_ == address) {
+		if ((*it)->name_ == name) {
 			return (*it);
 		}
 	}
@@ -295,12 +298,12 @@ void Graph::print() const
 					it != edges_.end(); it++) {
 		const Edge& e = **it;
 
-		LOG_IPCP_INFO("    (%u --> %u, %d)", e.address1_,
-			      e.address2_, e.weight_);
+		LOG_IPCP_INFO("    (%s --> %s, %d)", e.name1_.c_str(),
+			      e.name2_.c_str(), e.weight_);
 	}
 }
 
-PredecessorInfo::PredecessorInfo(unsigned int nPredecessor)
+PredecessorInfo::PredecessorInfo(const std::string& nPredecessor)
 {
 	predecessor_ = nPredecessor;
 }
@@ -318,10 +321,10 @@ void DijkstraAlgorithm::clear()
 }
 
 void DijkstraAlgorithm::computeShortestDistances(const Graph& graph,
-					unsigned int source_address,
-					std::map<unsigned int, int>& distances)
+						 const std::string& source_name,
+						 std::map<std::string, int>& distances)
 {
-	execute(graph, source_address);
+	execute(graph, source_name);
 
 	// Write back the result
 	distances = distances_;
@@ -331,27 +334,27 @@ void DijkstraAlgorithm::computeShortestDistances(const Graph& graph,
 
 void DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
  	 	    	    	    	    const std::list<FlowStateObject>& fsoList,
-					    unsigned int source_address,
+					    const std::string& source_name,
 					    std::list<rina::RoutingTableEntry *>& rt)
 {
-	std::list<unsigned int>::const_iterator it;
-	unsigned int nextHop;
+	std::list<std::string>::const_iterator it;
 	rina::RoutingTableEntry * entry;
+	rina::IPCPNameAddresses ipcpna;
 
-	execute(graph, source_address);
+	execute(graph, source_name);
 
 	for (it = graph.vertices_.begin(); it != graph.vertices_.end(); ++it) {
-		if ((*it) != source_address) {
-			nextHop = getNextHop((*it), source_address);
-			if (nextHop != 0) {
+		if ((*it) != source_name) {
+			ipcpna.name = getNextHop((*it), source_name);
+			if (ipcpna.name != std::string()) {
 				entry = new rina::RoutingTableEntry();
-				entry->address = (*it);
-				entry->nextHopAddresses.push_back(rina::NHopAltList(nextHop));
+				entry->destination.name = (*it);
+				entry->nextHopNames.push_back(rina::NHopAltList(ipcpna));
 				entry->qosId = 0;
 				entry->cost = 1;
 				rt.push_back(entry);
-				LOG_IPCP_DBG("Added entry to routing table: destination %u, next-hop %u",
-						entry->address, nextHop);
+				LOG_IPCP_DBG("Added entry to routing table: destination %s, next-hop %s",
+						entry->destination.name, ipcpna.name.c_str());
 			}
 		}
 	}
@@ -359,12 +362,12 @@ void DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
 	clear();
 }
 
-void DijkstraAlgorithm::execute(const Graph& graph, unsigned int source)
+void DijkstraAlgorithm::execute(const Graph& graph, const std::string& source)
 {
 	distances_[source] = 0;
 	unsettled_nodes_.insert(source);
 
-	unsigned int node;
+	std::string node;
 	while (unsettled_nodes_.size() > 0) {
 		node = getMinimum();
 		settled_nodes_.insert(node);
@@ -373,13 +376,13 @@ void DijkstraAlgorithm::execute(const Graph& graph, unsigned int source)
 	}
 }
 
-unsigned int DijkstraAlgorithm::getMinimum() const
+std::string DijkstraAlgorithm::getMinimum() const
 {
-	unsigned int minimum = UINT_MAX;
-	std::set<unsigned int>::iterator it;
+	std::string minimum = std::string();
+	std::set<std::string>::iterator it;
 
 	for (it = unsettled_nodes_.begin(); it != unsettled_nodes_.end(); ++it) {
-		if (minimum == UINT_MAX) {
+		if (minimum == std::string()) {
 			minimum = (*it);
 		} else {
 			if (getShortestDistance((*it)) < getShortestDistance(minimum)) {
@@ -391,9 +394,9 @@ unsigned int DijkstraAlgorithm::getMinimum() const
 	return minimum;
 }
 
-int DijkstraAlgorithm::getShortestDistance(unsigned int destination) const
+int DijkstraAlgorithm::getShortestDistance(const std::string& destination) const
 {
-	std::map<unsigned int, int>::const_iterator it;
+	std::map<std::string, int>::const_iterator it;
 	int distance = INT_MAX;
 
 	it = distances_.find(destination);
@@ -405,12 +408,12 @@ int DijkstraAlgorithm::getShortestDistance(unsigned int destination) const
 }
 
 void DijkstraAlgorithm::findMinimalDistances(const Graph& graph,
-					     unsigned int node)
+					     const std::string& node)
 {
-	std::list<unsigned int> adjacentNodes;
+	std::list<std::string> adjacentNodes;
 	std::list<Edge *>::const_iterator edgeIt;
 
-	unsigned int target = 0;
+	std::string target = std::string();
 	int shortestDistance;
 	for (edgeIt = graph.edges_.begin(); edgeIt != graph.edges_.end();
 			++edgeIt) {
@@ -426,7 +429,7 @@ void DijkstraAlgorithm::findMinimalDistances(const Graph& graph,
 	}
 }
 
-bool DijkstraAlgorithm::isNeighbor(Edge * edge, unsigned int node) const
+bool DijkstraAlgorithm::isNeighbor(Edge * edge, const std::string& node) const
 {
 	if (edge->isVertexIn(node)) {
 		if (!isSettled(edge->getOtherEndpoint(node))) {
@@ -437,7 +440,7 @@ bool DijkstraAlgorithm::isNeighbor(Edge * edge, unsigned int node) const
 	return false;
 }
 
-bool DijkstraAlgorithm::isSettled(unsigned int node) const
+bool DijkstraAlgorithm::isSettled(const std::string& node) const
 {
 	std::set<unsigned int>::iterator it;
 
@@ -450,16 +453,16 @@ bool DijkstraAlgorithm::isSettled(unsigned int node) const
 	return false;
 }
 
-unsigned int DijkstraAlgorithm::getNextHop(unsigned int target,
-		unsigned int source)
+std::string DijkstraAlgorithm::getNextHop(const std::string& target,
+					  const std::string& source)
 {
-	std::map<unsigned int, PredecessorInfo *>::iterator it;
+	std::map<std::string, PredecessorInfo *>::iterator it;
 	PredecessorInfo * step;
-	unsigned int nextHop = target;
+	std::string nextHop = target;
 
 	it = predecessors_.find(target);
 	if (it == predecessors_.end()) {
-		return 0;
+		return std::string();
 	} else {
 		step = it->second;
 	}
@@ -476,7 +479,7 @@ unsigned int DijkstraAlgorithm::getNextHop(unsigned int target,
 	}
 
 	if (step->predecessor_ == target) {
-		return 0;
+		return std::string();
 	}
 
 	return nextHop;
@@ -498,10 +501,10 @@ void ECMPDijkstraAlgorithm::clear()
 }
 
 void ECMPDijkstraAlgorithm::computeShortestDistances(const Graph& graph,
-						     unsigned int source_address,
-						     std::map<unsigned int, int>& distances)
+			      	      	      	     const std::string& source_name,
+						     std::map<std::string, int>& distances)
 {
-	execute(graph, source_address);
+	execute(graph, source_name);
 
 	// Write back the result
 	distances = distances_;
@@ -511,60 +514,68 @@ void ECMPDijkstraAlgorithm::computeShortestDistances(const Graph& graph,
 
 void ECMPDijkstraAlgorithm::computeRoutingTable(const Graph& graph,
  	 	    	    	       	        const std::list<FlowStateObject>& fsoList,
-						unsigned int source_address,
+						const std::string& source_name,
 						std::list<rina::RoutingTableEntry *>& rt)
 {
-	std::list<unsigned int>::const_iterator it;
-	std::list<unsigned int>::const_iterator nextHopsIt;
-	std::list<unsigned int> nextHops;
+	std::list<std::string>::const_iterator it;
+	std::list<std::string>::const_iterator nextHopsIt;
+	std::list<std::string> nextHops;
 	rina::RoutingTableEntry * entry;
+	rina::IPCPNameAddresses ipcpna;
 
 	(void)fsoList; // avoid compiler barfs
 
-	execute(graph, source_address);
+	execute(graph, source_name);
 
 	for(std::set<TreeNode *>::iterator it = t->chl.begin(); it != t->chl.end(); it++){
 		std::list<rina::RoutingTableEntry *>::iterator pos = findEntry(rt,
-									       (*it)->addr);
+									       (*it)->name);
 
 		if(pos != rt.end()){
-			(*pos)->nextHopAddresses.push_back((*it)->addr);
+			ipcpna.name = (*it)->name;
+			(*pos)->nextHopNames.push_back(ipcpna);
 		}
 		else{
 			entry = new rina::RoutingTableEntry();
-		        entry->address = (*it)->addr;
+		        entry->destination.name = (*it)->name;
 		        entry->qosId = 1;
 		        entry->cost = (*it)->metric;
-			entry->nextHopAddresses.push_back((*it)->addr);
-			LOG_IPCP_DBG("Added entry to routing table: destination %u, next-hop %u",
-                        entry->address, (*it)->addr);
+		        ipcpna.name = (*it)->name;
+			entry->nextHopNames.push_back(ipcpna);
+			LOG_IPCP_DBG("Added entry to routing table: destination %s, next-hop %s",
+                        entry->destination.name.c_str(), (*it)->name.c_str());
 			rt.push_back(entry);
 		}
-		addRecursive(rt, 1, (*it)->addr, *it);
+		addRecursive(rt, 1, (*it)->name, *it);
 	}
 	clear();
 }
 
 void ECMPDijkstraAlgorithm::addRecursive(std::list<rina::RoutingTableEntry *> &table,
 					 int qos,
-					 unsigned int next,
+					 const std::string& next,
 					 TreeNode * node)
 {
+	rina::IPCPNameAddresses ipcpna;
+
 	for(std::set<TreeNode *>::iterator it = node->chl.begin(); it != node->chl.end(); it++){
 		std::list<rina::RoutingTableEntry *>::iterator pos = findEntry(table,
-									       (*it)->addr);
+									       (*it)->name);
+
 
 		if(pos != table.end()){
-			(*pos)->nextHopAddresses.push_back(next);
+			ipcpna.name = next;
+			(*pos)->nextHopNames.push_back(ipcpna);
 		}
 		else{
 			rina::RoutingTableEntry * entry = new rina::RoutingTableEntry();
-		        entry->address = (*it)->addr;
+		        entry->destination.name = (*it)->name;
 		        entry->qosId = 1;
 		        entry->cost = (*it)->metric;
-			entry->nextHopAddresses.push_back(next);
-			LOG_IPCP_DBG("Added entry to routing table: destination %u, next-hop %u",
-                        entry->address, next);
+		        ipcpna.name = next;
+			entry->nextHopNames.push_back(ipcpna);
+			LOG_IPCP_DBG("Added entry to routing table: destination %s, next-hop %s",
+                        entry->destination.name.c_str(), next.c_str());
 			table.push_back(entry);
 		}
 		addRecursive(table, 1, next, *it);
@@ -572,12 +583,12 @@ void ECMPDijkstraAlgorithm::addRecursive(std::list<rina::RoutingTableEntry *> &t
 }
 
 std::list<rina::RoutingTableEntry *>::iterator ECMPDijkstraAlgorithm::findEntry(std::list<rina::RoutingTableEntry *> &table,
-										unsigned int addr)
+										const std::string& name)
 {
 	std::list<rina::RoutingTableEntry *>::iterator it;
 	for(it = table.begin(); it != table.end(); it++)
 	{
-		if((*it)->address == addr){
+		if((*it)->destination.name == name){
 			return it;
 		}
 	}
@@ -585,7 +596,7 @@ std::list<rina::RoutingTableEntry *>::iterator ECMPDijkstraAlgorithm::findEntry(
 }
 
 void ECMPDijkstraAlgorithm::execute(const Graph& graph,
-				    unsigned int source)
+				    const std::string& source)
 {
 	distances_[source] = 0;
 	settled_nodes_.insert(source);
@@ -593,7 +604,7 @@ void ECMPDijkstraAlgorithm::execute(const Graph& graph,
 
 	std::list<Edge *>::const_iterator edgeIt;
 	int cost;
-	unsigned int target = 0;
+	std::string target = std::string();
 	int shortestDistance;
 	for (edgeIt = graph.edges_.begin();
 			edgeIt != graph.edges_.end(); ++edgeIt) {
@@ -606,7 +617,7 @@ void ECMPDijkstraAlgorithm::execute(const Graph& graph,
 	}
 
 	while (unsettled_nodes_.size() > 0) {
-		std::set<unsigned int>::iterator it;
+		std::set<std::string>::iterator it;
 		getMinimum();
 		for(it = minimum_nodes_.begin(); it != minimum_nodes_.end(); ++it){
 			settled_nodes_.insert(*it);
@@ -630,12 +641,12 @@ void ECMPDijkstraAlgorithm::execute(const Graph& graph,
 
 void ECMPDijkstraAlgorithm::getMinimum()
 {
-	unsigned int minimum = UINT_MAX;
-	std::set<unsigned int>::iterator it;
+	std::string minimum = std::string();
+	std::set<std::string>::iterator it;
 	minimum_nodes_.clear();
 	std::list<Edge *>::const_iterator edgeIt;
 	for (it = unsettled_nodes_.begin(); it != unsettled_nodes_.end(); ++it) {
-		if (minimum == UINT_MAX) {
+		if (minimum == std::string()) {
 			minimum_nodes_.insert(*it);
 			minimum = (*it);
 		} else {
@@ -652,9 +663,9 @@ void ECMPDijkstraAlgorithm::getMinimum()
 	}
 }
 
-int ECMPDijkstraAlgorithm::getShortestDistance(unsigned int destination) const
+int ECMPDijkstraAlgorithm::getShortestDistance(const std::string& destination) const
 {
-	std::map<unsigned int, int>::const_iterator it;
+	std::map<std::string, int>::const_iterator it;
 	int distance = INT_MAX;
 
 	it = distances_.find(destination);
@@ -668,18 +679,18 @@ int ECMPDijkstraAlgorithm::getShortestDistance(unsigned int destination) const
 void ECMPDijkstraAlgorithm::findMinimalDistances(const Graph& graph,
 						 TreeNode * pred)
 {
-	std::list<unsigned int> adjacentNodes;
+	std::list<std::string> adjacentNodes;
 	std::list<Edge *>::const_iterator edgeIt;
 	int cost;
 
-	unsigned int target = 0;
+	std::string target = std::string();
 	int shortestDistance;
 	for (edgeIt = graph.edges_.begin(); edgeIt != graph.edges_.end();
 			++edgeIt) {
-		if (isNeighbor((*edgeIt), pred->addr)) {
-			target = (*edgeIt)->getOtherEndpoint(pred->addr);
+		if (isNeighbor((*edgeIt), pred->name)) {
+			target = (*edgeIt)->getOtherEndpoint(pred->name);
 			cost = (*edgeIt)->weight_;
-			shortestDistance = getShortestDistance(pred->addr) + cost;
+			shortestDistance = getShortestDistance(pred->name) + cost;
 			if (shortestDistance < getShortestDistance(target)) {
 				distances_[target] = shortestDistance;
 				predecessors_[target].clear();
@@ -693,7 +704,7 @@ void ECMPDijkstraAlgorithm::findMinimalDistances(const Graph& graph,
 }
 
 bool ECMPDijkstraAlgorithm::isNeighbor(Edge * edge,
-				       unsigned int node) const
+				       const std::string& node) const
 {
 	if (edge->isVertexIn(node)) {
 		if (!isSettled(edge->getOtherEndpoint(node))) {
@@ -704,7 +715,7 @@ bool ECMPDijkstraAlgorithm::isNeighbor(Edge * edge,
 	return false;
 }
 
-bool ECMPDijkstraAlgorithm::isSettled(unsigned int node) const
+bool ECMPDijkstraAlgorithm::isSettled(const std::string& node) const
 {
 	std::set<unsigned int>::iterator it;
 
@@ -732,32 +743,34 @@ LoopFreeAlternateAlgorithm::LoopFreeAlternateAlgorithm(IRoutingAlgorithm& ra)
 
 void LoopFreeAlternateAlgorithm::extendRoutingTableEntry(
 			std::list<rina::RoutingTableEntry *>& rt,
-			unsigned int target_address, unsigned int nexthop)
+			const std::string& target_name,
+			const std::string& nexthop)
 {
 	std::list<rina::RoutingTableEntry *>::iterator rit;
 	bool found = false;
+	rina::IPCPNameAddresses ipcpna;
 
 	// Find the involved routing table entry
 	for (rit = rt.begin(); rit != rt.end(); rit++) {
-		if ((*rit)->address == target_address) {
+		if ((*rit)->destination.name == target_name) {
 			break;
 		}
 	}
 
 	if (rit == rt.end()) {
 		LOG_WARN("LFA: Couldn't find routing table entry for "
-			 "target address %u", target_address);
+			 "target name %s", target_name.c_str());
 		return;
 	}
 
 	// Assume unicast and try to extend the routing table entry
 	// with the new alternative 'nexthop'
-	rina::NHopAltList& altlist = (*rit)->nextHopAddresses.front();
+	rina::NHopAltList& altlist = (*rit)->nextHopNames.front();
 
-	for (std::list<unsigned int>::iterator
+	for (std::list<rina::IPCPNameAddresses>::iterator
 			hit = altlist.alts.begin();
 				hit != altlist.alts.end(); hit++) {
-		if (*hit == nexthop) {
+		if (hit->name == nexthop) {
 			// The nexthop is already in the alternatives
 			found = true;
 			break;
@@ -765,49 +778,50 @@ void LoopFreeAlternateAlgorithm::extendRoutingTableEntry(
 	}
 
 	if (!found) {
-		altlist.alts.push_back(nexthop);
-		LOG_DBG("Node %u selected as LFA node towards the "
-			 "destination node %u", nexthop, target_address);
+		ipcpna.name = nexthop;
+		altlist.alts.push_back(ipcpna);
+		LOG_DBG("Node %s selected as LFA node towards the "
+			 "destination node %s", nexthop.c_str(), target_name.c_str());
 	}
 }
 
 void LoopFreeAlternateAlgorithm::fortifyRoutingTable(const Graph& graph,
-						unsigned int source_address,
-						std::list<rina::RoutingTableEntry *>& rt)
+						     const std::string& source_name,
+						     std::list<rina::RoutingTableEntry *>& rt)
 {
-	std::map<unsigned int, std::map< unsigned int, int > > neighbors_dist_trees;
-	std::map<unsigned int, int> src_dist_tree;
+	std::map<std::string, std::map< std::string, int > > neighbors_dist_trees;
+	std::map<std::string, int> src_dist_tree;
 
 	// TODO avoid this, can be computed when invoke computeRoutingTable()
-	routing_algorithm.computeShortestDistances(graph, source_address, src_dist_tree);
+	routing_algorithm.computeShortestDistances(graph, source_name, src_dist_tree);
 
 	// Collect all the neighbors, and for each one use the routing algorithm to
 	// compute the shortest distance map rooted at that neighbor
-	for (std::list<unsigned int>::const_iterator it = graph.vertices_.begin();
+	for (std::list<std::string>::const_iterator it = graph.vertices_.begin();
 						it != graph.vertices_.end(); ++it) {
-		if ((*it) != source_address && graph.contains_edge(source_address, *it)) {
-			neighbors_dist_trees[*it] = std::map<unsigned int, int>();
+		if ((*it) != source_name && graph.contains_edge(source_name, *it)) {
+			neighbors_dist_trees[*it] = std::map<std::string, int>();
 			routing_algorithm.computeShortestDistances(graph,
 						*it, neighbors_dist_trees[*it]);
 		}
 	}
 
 	// For each node X other than than the source node
-	for (std::list<unsigned int>::const_iterator it = graph.vertices_.begin();
+	for (std::list<std::string>::const_iterator it = graph.vertices_.begin();
 						it != graph.vertices_.end(); ++it) {
-		if ((*it) == source_address) {
+		if ((*it) == source_name) {
 			continue;
 		}
 
 		// For each neighbor of the source node, excluding X
-		for (std::map<unsigned int, std::map<unsigned int, int> >::iterator
+		for (std::map<std::string, std::map<std::string, int> >::iterator
 			nit = neighbors_dist_trees.begin();
 				nit != neighbors_dist_trees.end(); nit++) {
 			// If this neighbor is a LFA node for the current
 			// destination (*it) extend the routing table to take it
 			// into account
-			std::map< unsigned int, int>& neigh_dist_map = nit->second;
-			unsigned int neigh = nit->first;
+			std::map< std::string, int>& neigh_dist_map = nit->second;
+			std::string neigh = nit->first;
 
 			if (neigh == *it) {
 				continue;
@@ -826,8 +840,6 @@ void LoopFreeAlternateAlgorithm::fortifyRoutingTable(const Graph& graph,
 // CLASS FlowStateObject
 FlowStateObject::FlowStateObject()
 {
-	address_ = 0;
-	neighbor_address_ = 0;
 	cost_ = 0;
 	state_ = false;
 	sequence_number_ = 0;
@@ -836,15 +848,16 @@ FlowStateObject::FlowStateObject()
 	avoid_port_ = 0;
 	being_erased_ = true;
 }
-FlowStateObject::FlowStateObject(unsigned int address,
-				 unsigned int neighbor_address,
+
+FlowStateObject::FlowStateObject(const std::string& name_,
+				 const std::string& neighbor_name_,
 				 unsigned int cost,
 				 bool up,
 				 int sequence_number,
 				 unsigned int age)
 {
-	address_ = address;
-	neighbor_address_ = neighbor_address;
+	name = name_;
+	neighbor_name = neighbor_name_;
 	cost_ = cost;
 	state_ = up;
 	sequence_number_ = sequence_number;
@@ -865,36 +878,70 @@ FlowStateObject::~FlowStateObject()
 const std::string FlowStateObject::toString()
 {
 	std::stringstream ss;
-	ss << "Address: " << address_ << "; Neighbor address: " << neighbor_address_
+	std::list<unsigned int>::iterator it;
+
+	ss << "Name: " << name << "; Neighbor name: " << neighbor_name
 		<< "; cost: " << cost_ << std::endl;
+	ss << "Addresses: ";
+	for (it = addresses.begin(); it != addresses.end(); ++it) {
+		ss << *it << "; ";
+	}
+	ss << "Neighbor addresses: ";
+	for (it = neighbor_addresses.begin(); it != neighbor_addresses.end(); ++it) {
+		ss << *it << "; ";
+	}
+	ss << std::endl;
 	ss << "Up: " << state_ << "; Sequence number: " << sequence_number_
 		<< "; Age: " << age_;
 
 	return ss.str();
 }
 
-unsigned int FlowStateObject::get_address() const
+std::string FlowStateObject::get_name() const
 {
-	return address_;
+	return name;
 }
 
-unsigned int FlowStateObject::get_neighboraddress() const
+void FlowStateObject::set_name(const std::string& name_)
 {
-	return neighbor_address_;
+	name = name_;
+}
+
+std::string FlowStateObject::get_neighborname() const
+{
+	return neighbor_name;
+}
+
+void FlowStateObject::set_neighborname(const std::string & neighbor_name_)
+{
+	neighbor_name = neighbor_name_;
+}
+
+std::list<unsigned int> FlowStateObject::get_addresses() const
+{
+	return addresses;
+}
+
+std::list<unsigned int> FlowStateObject::get_neighboraddresses() const
+{
+	return neighbor_addresses;
 }
 
 unsigned int FlowStateObject::get_cost() const
 {
 	return cost_;
 }
+
 bool FlowStateObject::is_state() const
 {
 	return state_;
 }
+
 unsigned int FlowStateObject::get_sequencenumber() const
 {
 	return sequence_number_;
 }
+
 unsigned int FlowStateObject::get_age() const
 {
 	return age_;
@@ -904,54 +951,117 @@ bool FlowStateObject::is_modified() const
 {
 	return modified_;
 }
+
 unsigned int FlowStateObject::get_avoidport() const
 {
 	return avoid_port_;
 }
+
 bool FlowStateObject::is_beingerased() const
 {
 	return being_erased_;
 }
+
 std::string FlowStateObject::get_objectname() const
 {
 	return object_name_;
 }
-void FlowStateObject::set_address(unsigned int address)
+
+void FlowStateObject::add_address(unsigned int address)
 {
-	address_ = address;
+	if (!contains_address(address))
+		addresses.push_back(address);
 }
-void FlowStateObject::set_neighboraddress(unsigned int neighbor_address)
+
+void FlowStateObject::remove_address(unsigned int address)
 {
-	neighbor_address_ = neighbor_address;
+	std::list<unsigned int>::iterator it;
+	for (it = addresses.begin(); it != addresses.end(); ++it) {
+		if (*it == address) {
+			addresses.erase(it);
+			return;
+		}
+	}
 }
+
+bool FlowStateObject::contains_address(unsigned int address)
+{
+	std::list<unsigned int>::iterator it;
+	for (it = addresses.begin(); it != addresses.end(); ++it) {
+		if (*it == address) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void FlowStateObject::add_neighboraddress(unsigned int neighbor_address)
+{
+	if (!contains_neighboraddress(neighbor_address))
+		neighbor_addresses.push_back(neighbor_address);
+}
+
+void FlowStateObject::remove_neighboraddress(unsigned int address)
+{
+	std::list<unsigned int>::iterator it;
+	for (it = neighbor_addresses.begin();
+			it != neighbor_addresses.end(); ++it) {
+		if (*it == address) {
+			neighbor_addresses.erase(it);
+			return;
+		}
+	}
+}
+
+bool FlowStateObject::contains_neighboraddress(unsigned int address)
+{
+	std::list<unsigned int>::iterator it;
+	for (it = neighbor_addresses.begin();
+			it != neighbor_addresses.end(); ++it) {
+		if (*it == address) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void FlowStateObject::set_cost(unsigned int cost)
 {
 	cost_ = cost;
 }
+
 void FlowStateObject::has_state(bool state)
 {
 	state_ = state;
 }
+
 void FlowStateObject::set_sequencenumber(unsigned int sequence_number)
 {
 	sequence_number_ = sequence_number;
 }
+
 void FlowStateObject::set_age(unsigned int age)
 {
 	age_ = age;
 }
+
 void FlowStateObject::set_object_name(const std::string& name)
 {
 	object_name_ = name;
 }
+
 void FlowStateObject::has_modified(bool modified)
 {
 	modified_ = modified;
 }
+
 void FlowStateObject::set_avoidport(unsigned int avoid_port)
 {
 	avoid_port_ = avoid_port;
 }
+
 void FlowStateObject::has_beingerased(bool being_erased)
 {
 	being_erased_ = being_erased;
@@ -969,7 +1079,7 @@ void FlowStateObject::deprecateObject(unsigned int max_age)
 const std::string FlowStateObject::getKey() const
 {
 	std::stringstream ss;
-	ss << address_ << "-" << neighbor_address_;
+	ss << name << "-" << neighbor_name;
 	return ss.str();
 }
 
@@ -2042,6 +2152,7 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 		}
 	}
 
+	//TODO populate addresses
 	LOG_IPCP_INFO("Computed new Next Hop and PDU Forwarding Tables");
 	printNhopTable(rt);
 
@@ -2076,23 +2187,41 @@ namespace fso_helpers{
 void toGPB(	const FlowStateObject &fso, 
 	rina::messages::flowStateObject_t &gpb_fso)
 {
-	gpb_fso.set_address(fso.get_address());
+	gpb_fso.set_name(fso.get_name());
 	gpb_fso.set_age(fso.get_age());
-	gpb_fso.set_neighbor_address(fso.get_neighboraddress());
+	gpb_fso.set_neighbor_name(fso.get_neighborname());
 	gpb_fso.set_cost(fso.get_cost());
 	gpb_fso.set_state(fso.is_state());
 	gpb_fso.set_sequence_number(fso.get_sequencenumber());
+
+	for(std::list<unsigned int>::const_iterator it = fso.get_addresses().begin();
+			it != fso.get_addresses().end(); ++it) {
+		gpb_options.add_addresses(*it);
+	}
+
+	for(std::list<unsigned int>::const_iterator it = fso.get_neighboraddresses().begin();
+			it != fso.get_neighboraddresses().end(); ++it) {
+		gpb_options.add_neighbor_addresses(*it);
+	}
 }
 
 void toModel(
 	const rina::messages::flowStateObject_t &gpb_fso, FlowStateObject &fso)
 {
-	fso.set_address(gpb_fso.address());
-	fso.set_neighboraddress(gpb_fso.neighbor_address());
+	fso.set_name(gpb_fso.name());
+	fso.set_neighborname(gpb_fso.neighbor_name());
 	fso.set_cost(gpb_fso.cost());
 	fso.has_state(gpb_fso.state());
 	fso.set_sequencenumber(gpb_fso.sequence_number());
 	fso.set_age(gpb_fso.age());
+
+	for (int i = 0; i < gpb_fso.addresses_size(); ++i) {
+		fso.addresses.push_back(gpb_fso.addresses(i));
+	}
+
+	for (int i = 0; i < gpb_fso.neighbor_addresses_size(); ++i) {
+		fso.neighbor_addresses.push_back(gpb_fso.neighbor_addresses(i));
+	}
 }
 } //namespace fso_helpers
 

@@ -872,7 +872,6 @@ const std::string DTPInformation::toString() const
 
 /* CLASS ROUTING TABLE ENTRE */
 RoutingTableEntry::RoutingTableEntry(){
-	address = 0;
 	cost = 1;
 	qosId = 0;
 }
@@ -880,7 +879,7 @@ RoutingTableEntry::RoutingTableEntry(){
 const std::string RoutingTableEntry::getKey() const
 {
 	std::stringstream ss;
-	ss << address << "-" << qosId << "-" << nextHopAddresses.front().alts.front();
+	ss << destination.name << "-" << qosId << "-" << nextHopNames.front().alts.front().name;
 
 	return ss.str();
 }
