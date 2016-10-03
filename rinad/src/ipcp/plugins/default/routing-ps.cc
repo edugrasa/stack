@@ -959,7 +959,7 @@ void FlowStateObject::has_beingerased(bool being_erased)
 
 void FlowStateObject::deprecateObject(unsigned int max_age)
 {
-	LOG_IPCP_DBG("Object %s deprecated", object_name_.c_str());
+	LOG_IPCP_INFO("Object %s deprecated", object_name_.c_str());
 	state_ = false;
 	age_ = max_age +1 ;
 	sequence_number_ = sequence_number_ + 1;
@@ -1114,7 +1114,7 @@ void FlowStateObjects::removeObject(const std::string& fqn)
 {
 	rina::ScopedLock g(lock);
 
-	LOG_IPCP_DBG("Trying to remove object %s", fqn.c_str());
+	LOG_IPCP_INFO("Trying to remove object %s", fqn.c_str());
 
 	std::map<std::string, FlowStateObject*>::iterator it =
 			objects.find(fqn);
@@ -1321,14 +1321,22 @@ void FlowStateManager::incrementAge()
 
 void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObjects,
 				     unsigned int avoidPort,
-				     unsigned int address)
+				     unsigned int address,
+				     unsigned int old_address)
 {
+	FlowStateObject * obj_to_up = 0;
 	LOG_IPCP_DBG("Update objects from DB launched");
 
 	for (std::list<FlowStateObject>::const_iterator
 		newIt = newObjects.begin(); newIt != newObjects.end(); ++newIt)
 	{
+		//Don't update objects that are owned by this IPCP
+		if (newIt->get_address() == address || newIt->get_address() == old_address) {
+			continue;
+		}
+
 		FlowStateObject * obj_to_up = fsos->getObject(newIt->get_objectname());
+
 		//1 If the object exists update
 		if (obj_to_up != NULL)
 		{
@@ -1337,27 +1345,15 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 			//1.1 If the object has a higher sequence number update
 			if (newIt->get_sequencenumber() > obj_to_up->get_sequencenumber())
 			{
-				if (newIt->get_address() == address)
-				{
-					LOG_IPCP_DBG("Object is self generated, updating the sequence number and age	of %s to %d", obj_to_up->
-						      get_objectname().c_str(),
-						      obj_to_up->get_sequencenumber());
-					obj_to_up->set_sequencenumber(newIt->get_sequencenumber()+ 1);
-					obj_to_up->set_avoidport(NO_AVOID_PORT);
+				LOG_IPCP_DBG("Update the object %s with seq num %d",
+						obj_to_up->get_objectname().c_str(),
+						newIt->get_sequencenumber());
+				obj_to_up->set_avoidport(avoidPort);
+				if (newIt->get_age() >= maximum_age) {
+					obj_to_up->deprecateObject(maximum_age);
+				} else {
 					obj_to_up->set_age(0);
-				}
-				else
-				{
-					LOG_IPCP_DBG("Update the object %s with seq num %d",
-						      obj_to_up->get_objectname().c_str(),
-						      newIt->get_sequencenumber());
-					obj_to_up->set_avoidport(avoidPort);
-					if (newIt->get_age() >= maximum_age) {
-						obj_to_up->deprecateObject(maximum_age);
-					} else {
-						obj_to_up->set_age(0);
-						obj_to_up->set_sequencenumber(newIt->get_sequencenumber());
-					}
+					obj_to_up->set_sequencenumber(newIt->get_sequencenumber());
 				}
 				obj_to_up->has_modified(true);
 				fsos->has_modified(true);
@@ -2058,7 +2054,8 @@ void LinkStateRoutingPolicy::updateObjects(const std::list<FlowStateObject>& new
 	rina::ScopedLock g(lock_);
 	db_->updateObjects(newObjects,
 			   avoidPort,
-			   IPCPFactory::getIPCP()->get_address());
+			   IPCPFactory::getIPCP()->get_address(),
+			   IPCPFactory::getIPCP()->get_old_address());
 }
 
 void LinkStateRoutingPolicy::removeFlowStateObject(const std::string& fqn)

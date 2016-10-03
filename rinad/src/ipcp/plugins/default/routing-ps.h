@@ -456,7 +456,8 @@ public:
 	void incrementAge();
 	void updateObjects(const std::list<FlowStateObject>& newObjects,
 			   unsigned int avoidPort,
-			   unsigned int address);
+			   unsigned int address,
+			   unsigned int old_address);
 	void prepareForPropagation(std::map<int, std::list<FlowStateObject> >& to_propagate) const;
 	void encodeAllFSOs(rina::ser_obj_t& obj) const;
 	void getAllFSOs(std::list<FlowStateObject>& list) const;
