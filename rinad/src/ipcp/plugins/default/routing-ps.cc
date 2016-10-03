@@ -1096,6 +1096,8 @@ void FlowStateObjects::deprecateObjectsWithAddress(unsigned int address,
 						   bool neighbor)
 {
 	rina::ScopedLock g(lock);
+	unsigned int my_address = IPCPFactory::getIPCP()->get_address();
+	unsigned int my_old_address = IPCPFactory::getIPCP()->get_old_address();
 
 	std::map<std::string, FlowStateObject *>::iterator it;
 	for (it = objects.begin(); it != objects.end();
@@ -1103,7 +1105,9 @@ void FlowStateObjects::deprecateObjectsWithAddress(unsigned int address,
 		if (!neighbor && it->second->get_address() == address) {
 			it->second->deprecateObject(max_age);
 			modified_ = true;
-		} else if (neighbor && it->second->get_neighboraddress() == address) {
+		} else if (neighbor && it->second->get_neighboraddress() == address &&
+				(it->second->get_address() == my_address ||
+						it->second->get_address() == my_old_address)) {
 			it->second->deprecateObject(max_age);
 			modified_ = true;
 		}
@@ -1727,6 +1731,8 @@ void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent 
 void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event)
 {
 	std::list<FlowStateObject> all_fsos;
+	unsigned int address = IPCPFactory::getIPCP()->get_address();
+	unsigned int old_address = IPCPFactory::getIPCP()->get_old_address();
 
 	db_->getAllFSOs(all_fsos);
 
@@ -1736,7 +1742,8 @@ void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAdd
 	//Add LSOs to reflect the routes to the new address
 	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
 			it != all_fsos.end(); ++it) {
-		if (it->get_neighboraddress() == event->old_address) {
+		if ((it->get_address() == address || it->get_address() == old_address)
+				&& it->get_neighboraddress() == event->old_address) {
 			db_->addNewFSO(ipc_process_->get_address(),
 				       event->new_address, 1, 0);
 		}
