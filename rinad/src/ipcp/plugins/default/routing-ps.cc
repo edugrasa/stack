@@ -2153,17 +2153,18 @@ void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>
 }
 
 void LinkStateRoutingPolicy::populateAddresses(std::list<rina::RoutingTableEntry *>& rt,
-					       const std::list<FlowStateObject>& fsos)
+		      	      	               const std::list<rinad::FlowStateObject>& fsos)
 {
 	std::map<std::string, std::list<unsigned int> > name_address_map;
-	std::list<FlowStateObject>::const_iterator it;
-	std::list<FlowStateObject>::const_iterator jt;
+	std::list<rinad::FlowStateObject>::const_iterator it;
+	std::list<rinad::FlowStateObject>::const_iterator jt;
 	std::list<unsigned int>::iterator kt;
 	std::list<rina::RoutingTableEntry *>::iterator lt;
 	std::map<std::string, std::list<unsigned int> >::iterator mt;
 	std::list<rina::NHopAltList>::iterator nt;
 	std::list<rina::IPCPNameAddresses>::iterator ot;
 	std::list<unsigned int> addresses;
+	std::list<unsigned int> aux;
 
 	for (it = fsos.begin(); it != fsos.end(); ++it) {
 		jt = it;
@@ -2173,16 +2174,16 @@ void LinkStateRoutingPolicy::populateAddresses(std::list<rina::RoutingTableEntry
 			if (it->get_name() == jt->get_neighborname() &&
 					it->get_neighborname() ==  jt->get_name()) {
 
-				for (kt = it->get_addresses().begin();
-						kt != it->get_addresses().end(); ++kt) {
+				aux = it->get_addresses();
+				for (kt = aux.begin(); kt != aux.end(); ++kt) {
 					if (jt->contains_neighboraddress(*kt))
 						addresses.push_back(*kt);
 				}
 				name_address_map[it->get_name()] = addresses;
 				addresses.clear();
 
-				for (kt = it->get_neighboraddresses().begin();
-						kt != it->get_neighboraddresses().end(); ++kt) {
+				aux = it->get_neighboraddresses();
+				for (kt = aux.begin(); kt != aux.end(); ++kt) {
 					if (jt->contains_address(*kt))
 						addresses.push_back(*kt);
 				}

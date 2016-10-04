@@ -778,6 +778,135 @@ int getRoutingTable_MoreGraphEntries_True(bool lfa) {
 	return result;
 }
 
+void populateAddresses(std::list<rina::RoutingTableEntry *>& rt,
+		      const std::list<rinad::FlowStateObject>& fsos)
+{
+	std::map<std::string, std::list<unsigned int> > name_address_map;
+	std::list<rinad::FlowStateObject>::const_iterator it;
+	std::list<rinad::FlowStateObject>::const_iterator jt;
+	std::list<unsigned int>::iterator kt;
+	std::list<rina::RoutingTableEntry *>::iterator lt;
+	std::map<std::string, std::list<unsigned int> >::iterator mt;
+	std::list<rina::NHopAltList>::iterator nt;
+	std::list<rina::IPCPNameAddresses>::iterator ot;
+	std::list<unsigned int> addresses;
+	std::list<unsigned int> aux;
+
+	for (it = fsos.begin(); it != fsos.end(); ++it) {
+		jt = it;
+		++jt;
+
+		while (jt != fsos.end()) {
+			if (it->get_name() == jt->get_neighborname() &&
+					it->get_neighborname() ==  jt->get_name()) {
+
+				aux = it->get_addresses();
+				for (kt = aux.begin(); kt != aux.end(); ++kt) {
+					if (jt->contains_neighboraddress(*kt))
+						addresses.push_back(*kt);
+				}
+				name_address_map[it->get_name()] = addresses;
+				addresses.clear();
+
+				aux = it->get_neighboraddresses();
+				for (kt = aux.begin(); kt != aux.end(); ++kt) {
+					if (jt->contains_address(*kt))
+						addresses.push_back(*kt);
+				}
+				name_address_map[it->get_neighborname()] = addresses;
+				addresses.clear();
+
+				break;
+			}
+
+			++jt;
+		}
+	}
+
+	for (lt = rt.begin(); lt != rt.end(); ++lt) {
+		mt = name_address_map.find((*lt)->destination.name);
+		if (mt == name_address_map.end()) {
+			LOG_IPCP_WARN("Could not find addresses for IPCP %s",
+				      (*lt)->destination.name.c_str());
+			continue;
+		}
+		(*lt)->destination.addresses = mt->second;
+
+		for (nt = (*lt)->nextHopNames.begin();
+				nt != (*lt)->nextHopNames.end(); ++nt) {
+
+			for (ot = nt->alts.begin(); ot != nt->alts.end(); ++ot) {
+				mt = name_address_map.find(ot->name);
+				if (mt == name_address_map.end()) {
+					LOG_IPCP_WARN("Could not find addresses for IPCP %s",
+							ot->name.c_str());
+					continue;
+				}
+
+				ot->addresses = mt->second;
+			}
+		}
+	}
+}
+
+int getRoutingTable_Addresses_True() {
+	std::list<rinad::FlowStateObject> objects;
+	rinad::FlowStateObject fso1("a", "b", 1, true, 1, 1);
+	fso1.add_address(23);
+	fso1.add_address(2300);
+	fso1.add_neighboraddress(24);
+	fso1.add_neighboraddress(2400);
+	rinad::FlowStateObject fso2("b", "a", 1, true, 1, 1);
+	fso2.add_address(24);
+	fso2.add_address(2400);
+	fso2.add_neighboraddress(23);
+	fso2.add_neighboraddress(2300);
+	rinad::FlowStateObject fso3("a", "c", 1, true, 1, 1);
+	fso3.add_address(23);
+	fso3.add_address(2300);
+	fso3.add_neighboraddress(25);
+	fso3.add_neighboraddress(2500);
+	rinad::FlowStateObject fso4("c", "a", 1, true, 1, 1);
+	fso4.add_address(25);
+	fso4.add_address(2500);
+	fso4.add_neighboraddress(23);
+	fso4.add_neighboraddress(2300);
+	rinad::FlowStateObject fso5("b", "c", 1, true, 1, 1);
+	fso5.add_address(24);
+	fso5.add_address(2400);
+	fso5.add_neighboraddress(25);
+	fso5.add_neighboraddress(2500);
+	rinad::FlowStateObject fso6("c", "b", 1, true, 1, 1);
+	fso6.add_address(25);
+	fso6.add_address(2500);
+	fso6.add_neighboraddress(24);
+	fso6.add_neighboraddress(2400);
+	rinad::IRoutingAlgorithm * routingAlgorithm;
+	std::list<rina::RoutingTableEntry *> rtable;
+	int result = 0;
+
+	routingAlgorithm = new rinad::DijkstraAlgorithm();
+
+	objects.push_back(fso1);
+	objects.push_back(fso2);
+	objects.push_back(fso3);
+	objects.push_back(fso4);
+	objects.push_back(fso5);
+	objects.push_back(fso6);
+
+	routingAlgorithm->computeRoutingTable(rinad::Graph(objects),
+					      objects, "a", rtable);
+
+	populateAddresses(rtable, objects);
+
+	if (rtable.size() != 2) {
+		result = -1;
+	}
+
+	delete routingAlgorithm;
+	return result;
+}
+
 int test_dijkstra() {
 	int result = 0;
 
@@ -822,6 +951,14 @@ int test_dijkstra() {
 		return result;
 	}
 	LOG_IPCP_INFO("getPDUTForwardingTable_MoreGraphEntriesLFA_True test passed");
+
+
+	result = getRoutingTable_Addresses_True();
+	if (result < 0) {
+		LOG_IPCP_ERR("getRoutingTable_Addresses_True test failed");
+		return result;
+	}
+	LOG_IPCP_INFO("getRoutingTable_Addresses_True test passed");
 
 	return result;
 }
