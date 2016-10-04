@@ -870,6 +870,18 @@ const std::string DTPInformation::toString() const
 	return ss.str();
 }
 
+std::string IPCPNameAddresses::get_addresses_as_string() const
+{
+	std::stringstream ss;
+
+	for (std::list<unsigned int>::const_iterator it = addresses.begin();
+			it != addresses.end(); ++it) {
+		ss << *it << "; ";
+	}
+
+	return ss.str();
+}
+
 /* CLASS ROUTING TABLE ENTRE */
 RoutingTableEntry::RoutingTableEntry(){
 	cost = 1;

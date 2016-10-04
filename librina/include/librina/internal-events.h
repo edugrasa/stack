@@ -194,10 +194,12 @@ public:
 /// The address of a neighbor IPCP has changed
 class NeighborAddressChangeEvent: public InternalEvent {
 public:
-	NeighborAddressChangeEvent(unsigned int new_address,
+	NeighborAddressChangeEvent(const std::string& neigh_name_,
+				   unsigned int new_address,
 			   	   unsigned int old_address);
 	const std::string toString();
 
+	std::string neigh_name;
 	unsigned int new_address;
 	unsigned int old_address;
 };

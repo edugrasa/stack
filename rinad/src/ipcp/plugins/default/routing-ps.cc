@@ -354,7 +354,7 @@ void DijkstraAlgorithm::computeRoutingTable(const Graph& graph,
 				entry->cost = 1;
 				rt.push_back(entry);
 				LOG_IPCP_DBG("Added entry to routing table: destination %s, next-hop %s",
-						entry->destination.name, ipcpna.name.c_str());
+						entry->destination.name.c_str(), ipcpna.name.c_str());
 			}
 		}
 	}
@@ -442,7 +442,7 @@ bool DijkstraAlgorithm::isNeighbor(Edge * edge, const std::string& node) const
 
 bool DijkstraAlgorithm::isSettled(const std::string& node) const
 {
-	std::set<unsigned int>::iterator it;
+	std::set<std::string>::iterator it;
 
 	for (it = settled_nodes_.begin(); it != settled_nodes_.end(); ++it) {
 		if ((*it) == node) {
@@ -717,7 +717,7 @@ bool ECMPDijkstraAlgorithm::isNeighbor(Edge * edge,
 
 bool ECMPDijkstraAlgorithm::isSettled(const std::string& node) const
 {
-	std::set<unsigned int>::iterator it;
+	std::set<std::string>::iterator it;
 
 	for (it = settled_nodes_.begin();
 			it != settled_nodes_.end(); ++it) {
@@ -875,10 +875,10 @@ FlowStateObject::~FlowStateObject()
 {
 }
 
-const std::string FlowStateObject::toString()
+const std::string FlowStateObject::toString() const
 {
 	std::stringstream ss;
-	std::list<unsigned int>::iterator it;
+	std::list<unsigned int>::const_iterator it;
 
 	ss << "Name: " << name << "; Neighbor name: " << neighbor_name
 		<< "; cost: " << cost_ << std::endl;
@@ -984,9 +984,9 @@ void FlowStateObject::remove_address(unsigned int address)
 	}
 }
 
-bool FlowStateObject::contains_address(unsigned int address)
+bool FlowStateObject::contains_address(unsigned int address) const
 {
-	std::list<unsigned int>::iterator it;
+	std::list<unsigned int>::const_iterator it;
 	for (it = addresses.begin(); it != addresses.end(); ++it) {
 		if (*it == address) {
 			return true;
@@ -994,6 +994,15 @@ bool FlowStateObject::contains_address(unsigned int address)
 	}
 
 	return false;
+}
+
+void FlowStateObject::set_addresses(const std::list<unsigned int>& addresses_)
+{
+	addresses.clear();
+	for(std::list<unsigned int>::const_iterator it = addresses_.begin();
+			it != addresses_.end(); ++it) {
+		addresses.push_back(*it);
+	}
 }
 
 void FlowStateObject::add_neighboraddress(unsigned int neighbor_address)
@@ -1014,9 +1023,9 @@ void FlowStateObject::remove_neighboraddress(unsigned int address)
 	}
 }
 
-bool FlowStateObject::contains_neighboraddress(unsigned int address)
+bool FlowStateObject::contains_neighboraddress(unsigned int address) const
 {
-	std::list<unsigned int>::iterator it;
+	std::list<unsigned int>::const_iterator it;
 	for (it = neighbor_addresses.begin();
 			it != neighbor_addresses.end(); ++it) {
 		if (*it == address) {
@@ -1025,6 +1034,15 @@ bool FlowStateObject::contains_neighboraddress(unsigned int address)
 	}
 
 	return false;
+}
+
+void FlowStateObject::set_neighboraddresses(const std::list<unsigned int>& addresses_)
+{
+	neighbor_addresses.clear();
+	for(std::list<unsigned int>::const_iterator it = addresses_.begin();
+			it != addresses_.end(); ++it) {
+		neighbor_addresses.push_back(*it);
+	}
 }
 
 void FlowStateObject::set_cost(unsigned int cost)
@@ -1156,14 +1174,74 @@ bool FlowStateObjects::addObject(const FlowStateObject& object)
 	}
 }
 
+void FlowStateObjects::addAddressToFSOs(const std::string& name,
+		      	      	        unsigned int address,
+					bool neighbor)
+{
+	rina::ScopedLock g(lock);
+	std::map<std::string, FlowStateObject *>::iterator it;
+	std::string my_name = IPCPFactory::getIPCP()->get_name();
+
+	for (it = objects.begin(); it != objects.end(); ++it) {
+		if (neighbor) {
+			if (it->second->get_name() == my_name
+					&& it->second->get_neighborname() == name) {
+				it->second->add_neighboraddress(address);
+				it->second->has_modified(true);
+				it->second->set_age(0);
+				it->second->set_sequencenumber(it->second->get_sequencenumber() + 1);
+			}
+		} else if (it->second->get_name() == name) {
+			it->second->add_address(address);
+			it->second->has_modified(true);
+			it->second->set_age(0);
+			it->second->set_sequencenumber(it->second->get_sequencenumber() + 1);
+		}
+	}
+
+	modified_ = true;
+}
+
+void FlowStateObjects::removeAddressFromFSOs(const std::string& name,
+			   	   	     unsigned int address,
+					     bool neighbor)
+{
+	rina::ScopedLock g(lock);
+	std::map<std::string, FlowStateObject *>::iterator it;
+	std::string my_name = IPCPFactory::getIPCP()->get_name();
+
+	for (it = objects.begin(); it != objects.end(); ++it) {
+		if (neighbor) {
+			if (it->second->get_name() == my_name
+					&& it->second->get_neighborname() == name) {
+				it->second->remove_neighboraddress(address);
+				it->second->has_modified(true);
+				it->second->set_age(0);
+				it->second->set_sequencenumber(it->second->get_sequencenumber() + 1);
+			}
+		} else if (it->second->get_name() == name) {
+			it->second->remove_address(address);
+			it->second->has_modified(true);
+			it->second->set_age(0);
+			it->second->set_sequencenumber(it->second->get_sequencenumber() + 1);
+		}
+	}
+
+	modified_ = true;
+}
+
 void FlowStateObjects::addCheckedObject(const FlowStateObject& object)
 {
-	FlowStateObject * fso = new FlowStateObject(object.get_address(),
-						    object.get_neighboraddress(),
+	FlowStateObject * fso = new FlowStateObject(object.get_name(),
+						    object.get_neighborname(),
 						    object.get_cost(),
 						    object.is_state(),
 						    object.get_sequencenumber(),
 						    object.get_age());
+
+	fso->set_addresses(object.get_addresses());
+	fso->set_neighboraddresses(object.get_neighboraddresses());
+
 	objects[object.get_objectname()] = fso;
 	rina::rib::RIBObj* rib_obj = new FlowStateRIBObject(fso);
 	IPCPRIBDaemon* rib_daemon = (IPCPRIBDaemon*)IPCPFactory::getIPCP()->get_rib_daemon();
@@ -1184,8 +1262,8 @@ void FlowStateObjects::deprecateObject(const std::string& fqn,
 	}
 }
 
-void FlowStateObjects::deprecateObjects(unsigned int neigh_address,
-                                        unsigned int address,
+void FlowStateObjects::deprecateObjects(const std::string& neigh_name,
+		      	      	        const std::string& name,
 		     	     	        unsigned int max_age)
 {
 	rina::ScopedLock g(lock);
@@ -1193,31 +1271,29 @@ void FlowStateObjects::deprecateObjects(unsigned int neigh_address,
 	std::map<std::string, FlowStateObject *>::iterator it;
 	for (it = objects.begin(); it != objects.end();
 			++it) {
-		if (it->second->get_neighboraddress() == neigh_address &&
-				it->second->get_address() == address) {
+		if (it->second->get_neighborname() == neigh_name &&
+				it->second->get_name() == name) {
 			it->second->deprecateObject(max_age);
 			modified_ = true;
 		}
 	}
 }
 
-void FlowStateObjects::deprecateObjectsWithAddress(unsigned int address,
-						   unsigned int max_age,
-						   bool neighbor)
+void FlowStateObjects::deprecateObjectsWithName(const std::string& name,
+						unsigned int max_age,
+						bool neighbor)
 {
 	rina::ScopedLock g(lock);
-	unsigned int my_address = IPCPFactory::getIPCP()->get_address();
-	unsigned int my_old_address = IPCPFactory::getIPCP()->get_old_address();
+	std::string my_name = IPCPFactory::getIPCP()->get_name();
 
 	std::map<std::string, FlowStateObject *>::iterator it;
 	for (it = objects.begin(); it != objects.end();
 			++it) {
-		if (!neighbor && it->second->get_address() == address) {
+		if (!neighbor && it->second->get_name() == name) {
 			it->second->deprecateObject(max_age);
 			modified_ = true;
-		} else if (neighbor && it->second->get_neighboraddress() == address &&
-				(it->second->get_address() == my_address ||
-						it->second->get_address() == my_old_address)) {
+		} else if (neighbor && it->second->get_neighborname() == name &&
+				it->second->get_name() == my_name) {
 			it->second->deprecateObject(max_age);
 			modified_ = true;
 		}
@@ -1408,17 +1484,29 @@ FlowStateManager::~FlowStateManager()
 	delete fsos;
 }
 
-bool FlowStateManager::addNewFSO(unsigned int address,
-				 unsigned int neighborAddress,
+void FlowStateManager::addAddressToFSOs(const std::string& name,
+					unsigned int address,
+					bool neighbor)
+{
+	fsos->addAddressToFSOs(name, address, neighbor);
+}
+
+bool FlowStateManager::addNewFSO(const std::string& name,
+				 std::list<unsigned int>& addresses,
+				 const std::string& neighbor_name,
+				 std::list<unsigned int>& neighbor_addresses,
 				 unsigned int cost,
 				 int avoid_port)
 {
-	FlowStateObject newObject(address,
-				  neighborAddress,
+	FlowStateObject newObject(name,
+				  neighbor_name,
 				  cost,
 				  true,
 				  1,
 				  0);
+
+	newObject.set_addresses(addresses);
+	newObject.set_neighboraddresses(neighbor_addresses);
 
 	return fsos->addObject(newObject);
 }
@@ -1428,27 +1516,29 @@ void FlowStateManager::deprecateObject(std::string fqn)
 	fsos->deprecateObject(fqn, maximum_age);
 }
 
+void FlowStateManager::removeAddressFromFSOs(const std::string& name,
+			   	   	     unsigned int address,
+					     bool neighbor)
+{
+	fsos->removeAddressFromFSOs(name, address, neighbor);
+}
+
 void FlowStateManager::incrementAge()
 {
 	fsos->incrementAge(maximum_age, timer);
 }
 
 void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObjects,
-				     unsigned int avoidPort,
-				     unsigned int address,
-				     unsigned int old_address)
+				     unsigned int avoidPort)
 {
 	FlowStateObject * obj_to_up = 0;
 	LOG_IPCP_DBG("Update objects from DB launched");
 
+	std::string my_name = IPCPFactory::getIPCP()->get_name();
+
 	for (std::list<FlowStateObject>::const_iterator
 		newIt = newObjects.begin(); newIt != newObjects.end(); ++newIt)
 	{
-		//Don't update objects that are owned by this IPCP
-		if (newIt->get_address() == address || newIt->get_address() == old_address) {
-			continue;
-		}
-
 		FlowStateObject * obj_to_up = fsos->getObject(newIt->get_objectname());
 
 		//1 If the object exists update
@@ -1456,19 +1546,34 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 		{
 			LOG_IPCP_DBG("Found the object in the DB. Object: %s",
 				obj_to_up->get_objectname().c_str());
+
 			//1.1 If the object has a higher sequence number update
 			if (newIt->get_sequencenumber() > obj_to_up->get_sequencenumber())
 			{
 				LOG_IPCP_DBG("Update the object %s with seq num %d",
 						obj_to_up->get_objectname().c_str(),
 						newIt->get_sequencenumber());
-				obj_to_up->set_avoidport(avoidPort);
-				if (newIt->get_age() >= maximum_age) {
-					obj_to_up->deprecateObject(maximum_age);
-				} else {
+
+				if (newIt->get_name() == my_name)
+				{
+					LOG_IPCP_DBG("Object is self generated, updating the sequence number and age of %s to %d",
+						     obj_to_up->get_objectname().c_str(),
+						     obj_to_up->get_sequencenumber());
+					obj_to_up->set_sequencenumber(newIt->get_sequencenumber()+ 1);
+					obj_to_up->set_avoidport(NO_AVOID_PORT);
 					obj_to_up->set_age(0);
-					obj_to_up->set_sequencenumber(newIt->get_sequencenumber());
+				} else {
+					obj_to_up->set_avoidport(avoidPort);
+					if (newIt->get_age() >= maximum_age) {
+						obj_to_up->deprecateObject(maximum_age);
+					} else {
+						obj_to_up->set_age(0);
+						obj_to_up->set_sequencenumber(newIt->get_sequencenumber());
+						obj_to_up->set_addresses(newIt->get_addresses());
+						obj_to_up->set_neighboraddresses(newIt->get_neighboraddresses());
+					}
 				}
+
 				obj_to_up->has_modified(true);
 				fsos->has_modified(true);
 			}
@@ -1476,7 +1581,7 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 		//2. If the object does not exist create
 		else
 		{
-			if(newIt->get_address() != address)
+			if(newIt->get_name() != my_name)
 			{
 				LOG_IPCP_DBG("New object added");
 				FlowStateObject fso(*newIt);
@@ -1518,12 +1623,6 @@ void FlowStateManager::prepareForPropagation(
 	}
 }
 
-void FlowStateManager::deprecateAllObjectsWithAddress(unsigned int address,
-						      bool neighbor)
-{
-	fsos->deprecateObjectsWithAddress(address, maximum_age, neighbor);
-}
-
 void FlowStateManager::removeObject(const std::string& fqn)
 {
 	fsos->removeObject(fqn);
@@ -1549,10 +1648,11 @@ void FlowStateManager::getAllFSOs(std::list<FlowStateObject>& list) const
 	fsos->getAllFSOs(list);
 }
 
-void FlowStateManager::deprecateObjectsNeighbor(unsigned int neigh_address,
-                                                unsigned int address)
+void FlowStateManager::deprecateObjectsNeighbor(const std::string& neigh_name,
+                                                const std::string& name)
 {
-	fsos->deprecateObjects(neigh_address, address,
+	fsos->deprecateObjects(neigh_name,
+			       name,
 			       maximum_age);
 }
 
@@ -1611,8 +1711,8 @@ void PropagateFSODBTimerTask::run()
 	lsr_policy_->timer_->scheduleTask(task, delay_);
 }
 
-UpdateAgeTimerTask::UpdateAgeTimerTask(
-		LinkStateRoutingPolicy * lsr_policy, long delay)
+UpdateAgeTimerTask::UpdateAgeTimerTask(LinkStateRoutingPolicy * lsr_policy,
+				       long delay)
 {
 	lsr_policy_ = lsr_policy;
 	delay_ = delay;
@@ -1629,17 +1729,19 @@ void UpdateAgeTimerTask::run()
 }
 
 ExpireOldAddressTimerTask::ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
+						     const std::string& name_,
 						     unsigned int addr,
 						     bool neigh)
 {
 	lsr_policy_ = lsr_policy;
+	name = name_;
 	address = addr;
 	neighbor = neigh;
 }
 
 void ExpireOldAddressTimerTask::run()
 {
-	lsr_policy_->expireOldAddress(address, neighbor);
+	lsr_policy_->expireOldAddress(name, address, neighbor);
 }
 
 // CLASS LinkStateRoutingPolicy
@@ -1663,7 +1765,6 @@ LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 	rib_daemon_ = ipc_process_->rib_daemon_;
 	routing_algorithm_ = 0;
 	resiliency_algorithm_ = 0;
-	source_vertex_ = 0;
 	db_ = 0;
 	wait_until_deprecate_address_ = 0;
 
@@ -1703,8 +1804,7 @@ void LinkStateRoutingPolicy::set_dif_configuration(
         rina::PolicyConfig psconf;
         long delay;
 
-        psconf = dif_configuration.routing_configuration_.policy_set_;
-        source_vertex_ = dif_configuration.get_address();
+        psconf = dif_configuration.routing_configuration_.policy_set_;;
 
         try {
         	routing_alg = psconf.get_param_value_as_string(ROUTING_ALGORITHM);
@@ -1819,20 +1919,15 @@ void LinkStateRoutingPolicy::eventHappened(rina::InternalEvent * event)
 void LinkStateRoutingPolicy::processAddressChangeEvent(rina::AddressChangeEvent * event)
 {
 	std::list<FlowStateObject> all_fsos;
+	std::string name = ipc_process_->get_name();
 
-	db_->getAllFSOs(all_fsos);
-
-	//Add LSOs to reflect the routes to the new address
-	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
-			it != all_fsos.end(); ++it) {
-		if (it->get_address() == event->old_address) {
-			db_->addNewFSO(event->new_address,
-				       it->get_neighboraddress(), 1, 0);
-		}
-	}
+	db_->addAddressToFSOs(name,
+			      event->new_address,
+			      false);
 
 	//Schedule task to remove all objects with old address
 	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
+							           	 name,
 									 event->old_address,
 									 false);
 	timer_->scheduleTask(task, event->deprecate_old_timeout);
@@ -1846,21 +1941,18 @@ void LinkStateRoutingPolicy::processNeighborAddressChangeEvent(rina::NeighborAdd
 
 	db_->getAllFSOs(all_fsos);
 
-	LOG_IPCP_INFO("Neighbor address changed: old address %d, new address %d",
+	LOG_IPCP_INFO("Neighbor %s address changed: old address %d, new address %d",
+		      event->neigh_name.c_str(),
 		      event->old_address,
 		      event->new_address);
-	//Add LSOs to reflect the routes to the new address
-	for (std::list<FlowStateObject>::iterator it = all_fsos.begin();
-			it != all_fsos.end(); ++it) {
-		if ((it->get_address() == address || it->get_address() == old_address)
-				&& it->get_neighboraddress() == event->old_address) {
-			db_->addNewFSO(ipc_process_->get_address(),
-				       event->new_address, 1, 0);
-		}
-	}
+
+	db_->addAddressToFSOs(event->neigh_name,
+			      event->new_address,
+			      true);
 
 	//Schedule task to remove all objects with old address
 	ExpireOldAddressTimerTask * task = new ExpireOldAddressTimerTask(this,
+									 event->neigh_name,
 									 event->old_address,
 									 true);
 	timer_->scheduleTask(task, wait_until_deprecate_address_);
@@ -1881,15 +1973,19 @@ void LinkStateRoutingPolicy::processFlowDeallocatedEvent(
 	//TODO update cost
 }
 
-void LinkStateRoutingPolicy::processNeighborLostEvent(
-		rina::ConnectiviyToNeighborLostEvent* event) {
-	db_->deprecateObjectsNeighbor(event->neighbor_.address_, ipc_process_->get_address());
+void LinkStateRoutingPolicy::processNeighborLostEvent(rina::ConnectiviyToNeighborLostEvent* event)
+{
+	db_->deprecateObjectsNeighbor(event->neighbor_.name_.processName,
+				      ipc_process_->get_name());
 }
 
 
 void LinkStateRoutingPolicy::processFlowAllocatedEvent(
 		rina::NMinusOneFlowAllocatedEvent * event)
 {
+	std::list<unsigned int> addresses;
+	std::list<unsigned int> neigh_addresses;
+
 	if (ipc_process_->resource_allocator_->get_n_minus_one_flow_manager()->
 			numberOfFlowsToNeighbour(event->flow_information_.remoteAppName.processName,
 					event->flow_information_.remoteAppName.processInstance) > 1) {
@@ -1900,10 +1996,17 @@ void LinkStateRoutingPolicy::processFlowAllocatedEvent(
 
 	try 
 	{
-		db_->addNewFSO(ipc_process_->get_address(),
-			ipc_process_->namespace_manager_->getAdressByname(
-			event->flow_information_.remoteAppName), 1,
-			event->flow_information_.portId);
+		addresses.push_back(ipc_process_->get_address());
+		neigh_addresses.push_back(
+				ipc_process_->namespace_manager_->getAdressByname(
+						event->flow_information_.remoteAppName));
+
+		db_->addNewFSO(ipc_process_->get_name(),
+			       addresses,
+			       event->flow_information_.remoteAppName.processName,
+			       neigh_addresses,
+			       1,
+			       event->flow_information_.portId);
 	} catch (rina::Exception &e) 
 	{
 		LOG_IPCP_DBG("flow allocation waiting for enrollment");
@@ -1915,6 +2018,9 @@ void LinkStateRoutingPolicy::processNeighborAddedEvent(
 		rina::NeighborAddedEvent * event)
 {
 	int portId = event->neighbor_.get_underlying_port_id();
+	std::list<unsigned int> addresses;
+	std::list<unsigned int> neigh_addresses;
+
 	for (std::list<rina::FlowInformation>::iterator it = 
 		allocated_flows_.begin(); it != allocated_flows_.end(); ++it) 
 	{
@@ -1922,8 +2028,15 @@ void LinkStateRoutingPolicy::processNeighborAddedEvent(
 		{
 			LOG_IPCP_INFO("There was an allocation flow event waiting for enrollment, launching it");
 			try {
-				db_->addNewFSO(ipc_process_->get_address(),
-					       ipc_process_->namespace_manager_->getAdressByname(event->neighbor_.get_name()),
+				addresses.push_back(ipc_process_->get_address());
+				neigh_addresses.push_back(
+						ipc_process_->namespace_manager_->getAdressByname(
+								event->neighbor_.get_name()));
+
+				db_->addNewFSO(ipc_process_->get_name(),
+					       addresses,
+					       event->neighbor_.get_name().processName,
+					       neigh_addresses,
 					       1,
 					       it->portId);
 				allocated_flows_.erase(it);
@@ -2014,53 +2127,6 @@ void LinkStateRoutingPolicy::updateAge()
 	db_->incrementAge();
 }
 
-void LinkStateRoutingPolicy::removeDuplicateEntries(std::list<rina::RoutingTableEntry *>& rt)
-{
-	std::list<rina::RoutingTableEntry *>::iterator it;
-	std::list<rina::RoutingTableEntry *>::iterator jt;
-	rina::RoutingTableEntry * current = 0;
-	rina::RoutingTableEntry * candidate = 0;
-	bool increment = true;
-
-	it = rt.begin();
-	while (it != rt.end()) {
-		current = *it;
-		increment = true;
-
-		for (jt = rt.begin(); jt != rt.end(); ++jt) {
-			if(it == jt)
-				continue;
-
-			candidate = *jt;
-
-			//Detect multiple next hops to the same target, some with higher cost
-			if (current->address == candidate->address &&
-			    current->qosId == candidate->qosId &&
-			    current->cost > candidate->cost) {
-				it = rt.erase(it);
-				delete current;
-				increment = false;
-				break;
-			}
-
-			//Duplicate detection
-			if (current->address == candidate->address &&
-			    current->qosId == candidate->qosId &&
-			    current->cost == candidate->cost &&
-			    current->nextHopAddresses.size() == candidate->nextHopAddresses.size() &&
-			    current->nextHopAddresses.front().alts.front() == candidate->nextHopAddresses.front().alts.front()) {
-				it = rt.erase(it);
-				delete current;
-				increment = false;
-				break;
-			}
-		}
-
-		if (increment)
-			++it;
-	}
-}
-
 void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>& rt)
 {
 	std::list<rina::RoutingTableEntry *>::iterator it;
@@ -2072,87 +2138,127 @@ void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>
 		ss.str(std::string());
 		ss.clear();
 		current = *it;
-		ss << "Dest. address: " << current->address
+		ss << "Dest. name: " << current->destination.name
+		   << "Dest. addresses: " << current->destination.get_addresses_as_string()
 		   << "; QoS-id: " << current->qosId
 		   << "; Next hops: ";
-		for (jt = current->nextHopAddresses.begin();
-				jt != current->nextHopAddresses.end(); ++jt) {
-			ss << jt->alts.front() << "; ";
+		for (jt = current->nextHopNames.begin();
+				jt != current->nextHopNames.end(); ++jt) {
+			ss << jt->alts.front().name << ": "
+			   << jt->alts.front().get_addresses_as_string() << "; ";
 		}
 
 		LOG_IPCP_INFO("%s", ss.str().c_str());
 	}
 }
 
+void LinkStateRoutingPolicy::populateAddresses(std::list<rina::RoutingTableEntry *>& rt,
+					       const std::list<FlowStateObject>& fsos)
+{
+	std::map<std::string, std::list<unsigned int> > name_address_map;
+	std::list<FlowStateObject>::const_iterator it;
+	std::list<FlowStateObject>::const_iterator jt;
+	std::list<unsigned int>::iterator kt;
+	std::list<rina::RoutingTableEntry *>::iterator lt;
+	std::map<std::string, std::list<unsigned int> >::iterator mt;
+	std::list<rina::NHopAltList>::iterator nt;
+	std::list<rina::IPCPNameAddresses>::iterator ot;
+	std::list<unsigned int> addresses;
+
+	for (it = fsos.begin(); it != fsos.end(); ++it) {
+		jt = it;
+		++jt;
+
+		while (jt != fsos.end()) {
+			if (it->get_name() == jt->get_neighborname() &&
+					it->get_neighborname() ==  jt->get_name()) {
+
+				for (kt = it->get_addresses().begin();
+						kt != it->get_addresses().end(); ++kt) {
+					if (jt->contains_neighboraddress(*kt))
+						addresses.push_back(*kt);
+				}
+				name_address_map[it->get_name()] = addresses;
+				addresses.clear();
+
+				for (kt = it->get_neighboraddresses().begin();
+						kt != it->get_neighboraddresses().end(); ++kt) {
+					if (jt->contains_address(*kt))
+						addresses.push_back(*kt);
+				}
+				name_address_map[it->get_neighborname()] = addresses;
+				addresses.clear();
+
+				break;
+			}
+
+			++jt;
+		}
+	}
+
+	for (lt = rt.begin(); lt != rt.end(); ++lt) {
+		mt = name_address_map.find((*lt)->destination.name);
+		if (mt == name_address_map.end()) {
+			LOG_IPCP_WARN("Could not find addresses for IPCP %s",
+				      (*lt)->destination.name.c_str());
+			continue;
+		}
+		(*lt)->destination.addresses = mt->second;
+
+		for (nt = (*lt)->nextHopNames.begin();
+				nt != (*lt)->nextHopNames.end(); ++nt) {
+
+			for (ot = nt->alts.begin(); ot != nt->alts.end(); ++ot) {
+				mt = name_address_map.find(ot->name);
+				if (mt == name_address_map.end()) {
+					LOG_IPCP_WARN("Could not find addresses for IPCP %s",
+							ot->name.c_str());
+					continue;
+				}
+
+				ot->addresses = mt->second;
+			}
+		}
+	}
+}
+
 void LinkStateRoutingPolicy::routingTableUpdate()
 {
-	std::list<FlowStateObject> all_fsos;
-	std::list<FlowStateObject> g1_fsos;
-	std::list<FlowStateObject> g2_fsos;
-	std::list<rina::RoutingTableEntry *> rt;
-	Graph g1;
-	Graph g2;
-	std::list<FlowStateObject>::iterator it;
-	bool add = false;
-	unsigned int address = 0;
-	unsigned int old_address = 0;
-
 	rina::ScopedLock g(lock_);
+	std::list<rina::RoutingTableEntry *> rt;
+	std::string my_name = ipc_process_->get_name();
+	std::list<FlowStateObject> flow_state_objects;
 
 	if (!db_->tableUpdate()) {
 		return;
 	}
 
-	db_->getAllFSOs(all_fsos);
+	db_->getAllFSOs(flow_state_objects);
 
-	address = ipc_process_->get_address();
-	old_address = ipc_process_->get_old_address();
-	if (old_address != 0) {
-		//Remove fsos with old_address to avoid routes to myself
-		for (it=all_fsos.begin(); it != all_fsos.end(); ++it) {
-			if (it->get_address() != old_address && it->get_neighboraddress()!= old_address)
-				g1_fsos.push_back(*it);
-		}
+	// Build a graph out of the FSO database
+	Graph graph(flow_state_objects);
 
-		g1.set_flow_state_objects(g1_fsos);
-		routing_algorithm_->computeRoutingTable(g1,
-							g1_fsos,
-							address,
-							rt);
-
-		//Remove fsos with address to avoid routes to myself
-		for (it=all_fsos.begin(); it != all_fsos.end(); ++it) {
-			if (it->get_address() != address && it->get_neighboraddress() != address)
-				g2_fsos.push_back(*it);
-		}
-
-		g2.set_flow_state_objects(g2_fsos);
-		routing_algorithm_->computeRoutingTable(g2,
-							g2_fsos,
-							old_address,
-							rt);
-		removeDuplicateEntries(rt);
-	} else {
-		g1.set_flow_state_objects(all_fsos);
-		routing_algorithm_->computeRoutingTable(g1,
-							all_fsos,
-							address,
-							rt);
-	}
+	// Invoke the routing algorithm to compute the routing table
+	// Main arguments are the graph and the source vertex.
+	// The list of FSOs may be useless, but has been left there
+	// for the moment (and it is currently unused by the Dijkstra
+	// algorithm).
+	routing_algorithm_->computeRoutingTable(graph,
+						flow_state_objects,
+						my_name,
+						rt);
 
 	// Run the resiliency algorithm, if any, to extend the routing table
 	if (resiliency_algorithm_) {
-		resiliency_algorithm_->fortifyRoutingTable(g1,
-							   ipc_process_->get_address(),
+		resiliency_algorithm_->fortifyRoutingTable(graph,
+							   my_name,
 							   rt);
-		if (old_address != 0) {
-			resiliency_algorithm_->fortifyRoutingTable(g2,
-								   ipc_process_->get_old_address(),
-								   rt);
-		}
 	}
 
-	//TODO populate addresses
+
+	//Populate addresses (right now there are only names int he RT entries)
+	populateAddresses(rt, flow_state_objects);
+
 	LOG_IPCP_INFO("Computed new Next Hop and PDU Forwarding Tables");
 	printNhopTable(rt);
 
@@ -2160,10 +2266,12 @@ void LinkStateRoutingPolicy::routingTableUpdate()
 	ipc_process_->resource_allocator_->pduft_gen_ps->routingTableUpdated(rt);
 }
 
-void LinkStateRoutingPolicy::expireOldAddress(unsigned int address, bool neighbor)
+void LinkStateRoutingPolicy::expireOldAddress(const std::string& name,
+					      unsigned int address,
+					      bool neighbor)
 {
 	rina::ScopedLock g(lock_);
-	db_->deprecateAllObjectsWithAddress(address, neighbor);
+	db_->removeAddressFromFSOs(name, address, neighbor);
 }
 
 void LinkStateRoutingPolicy::updateObjects(const std::list<FlowStateObject>& newObjects,
@@ -2171,9 +2279,7 @@ void LinkStateRoutingPolicy::updateObjects(const std::list<FlowStateObject>& new
 {
 	rina::ScopedLock g(lock_);
 	db_->updateObjects(newObjects,
-			   avoidPort,
-			   IPCPFactory::getIPCP()->get_address(),
-			   IPCPFactory::getIPCP()->get_old_address());
+			   avoidPort);
 }
 
 void LinkStateRoutingPolicy::removeFlowStateObject(const std::string& fqn)
@@ -2184,8 +2290,8 @@ void LinkStateRoutingPolicy::removeFlowStateObject(const std::string& fqn)
 
 // CLASS FlowStateObjectEncoder
 namespace fso_helpers{
-void toGPB(	const FlowStateObject &fso, 
-	rina::messages::flowStateObject_t &gpb_fso)
+void toGPB(const FlowStateObject &fso,
+	   rina::messages::flowStateObject_t &gpb_fso)
 {
 	gpb_fso.set_name(fso.get_name());
 	gpb_fso.set_age(fso.get_age());
@@ -2194,14 +2300,16 @@ void toGPB(	const FlowStateObject &fso,
 	gpb_fso.set_state(fso.is_state());
 	gpb_fso.set_sequence_number(fso.get_sequencenumber());
 
-	for(std::list<unsigned int>::const_iterator it = fso.get_addresses().begin();
-			it != fso.get_addresses().end(); ++it) {
-		gpb_options.add_addresses(*it);
+	std::list<unsigned int> addresses = fso.get_addresses();
+	for(std::list<unsigned int>::const_iterator it = addresses.begin();
+			it != addresses.end(); ++it) {
+		gpb_fso.add_addresses(*it);
 	}
 
-	for(std::list<unsigned int>::const_iterator it = fso.get_neighboraddresses().begin();
-			it != fso.get_neighboraddresses().end(); ++it) {
-		gpb_options.add_neighbor_addresses(*it);
+	std::list<unsigned int> neigh_addresses = fso.get_neighboraddresses();
+	for(std::list<unsigned int>::const_iterator it = neigh_addresses.begin();
+			it != neigh_addresses.end(); ++it) {
+		gpb_fso.add_neighbor_addresses(*it);
 	}
 }
 
@@ -2216,11 +2324,11 @@ void toModel(
 	fso.set_age(gpb_fso.age());
 
 	for (int i = 0; i < gpb_fso.addresses_size(); ++i) {
-		fso.addresses.push_back(gpb_fso.addresses(i));
+		fso.add_address(gpb_fso.addresses(i));
 	}
 
 	for (int i = 0; i < gpb_fso.neighbor_addresses_size(); ++i) {
-		fso.neighbor_addresses.push_back(gpb_fso.neighbor_addresses(i));
+		fso.add_neighboraddress(gpb_fso.neighbor_addresses(i));
 	}
 }
 } //namespace fso_helpers

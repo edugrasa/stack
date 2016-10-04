@@ -838,6 +838,8 @@ struct IPCPNameAddresses {
 
 	/* The active addresses of the IPCP */
 	std::list<unsigned int> addresses;
+
+	std::string get_addresses_as_string() const;
 };
 
 struct NHopAltList {

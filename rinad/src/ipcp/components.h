@@ -326,7 +326,7 @@ public:
 
 	virtual std::list<int> getNMinusOneFlowsToNeighbour(unsigned int address) = 0;
 
-	virtual int getManagementFlowToNeighbour(unsigned int address) = 0;
+	virtual int getManagementFlowToNeighbour(const std::string& name) = 0;
 
 	virtual unsigned int numberOfFlowsToNeighbour(const std::string& apn,
 			const std::string& api) = 0;

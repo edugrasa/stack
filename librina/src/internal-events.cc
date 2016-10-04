@@ -242,18 +242,20 @@ const std::string AddressChangeEvent::toString()
 }
 
 /// The address of a neighbor IPCP has changed
-NeighborAddressChangeEvent::NeighborAddressChangeEvent(unsigned int new_addr,
-						      unsigned int old_addr):
+NeighborAddressChangeEvent::NeighborAddressChangeEvent(const std::string& name,
+						       unsigned int new_addr,
+						       unsigned int old_addr):
 		InternalEvent(InternalEvent::NEIGHBOR_ADDRESS_CHANGE)
 {
 	new_address = new_addr;
 	old_address = old_addr;
+	neigh_name = name;
 }
 
 const std::string NeighborAddressChangeEvent::toString()
 {
 	std::stringstream ss;
-	ss<<"Event id: "<<type<<"; New address: "<< new_address
+	ss<<"Event id: "<<type<<"; Name: "<<neigh_name<<"; New address: "<< new_address
 			<<"; Old address: " << old_address << std::endl;
 	return ss.str();
 }

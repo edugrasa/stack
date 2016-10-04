@@ -283,7 +283,7 @@ public:
 			int sequence_number,
 			unsigned int age);
 	~FlowStateObject();
-	const std::string toString();
+	const std::string toString() const;
 	void deprecateObject(unsigned int max_age);
 	//accessors
 	std::string get_name() const;
@@ -302,10 +302,12 @@ public:
 	std::string get_objectname() const;
 	void add_address(unsigned int address);
 	void remove_address(unsigned int address);
-	bool contains_address(unsigned int address);
+	bool contains_address(unsigned int address) const;
+	void set_addresses(const std::list<unsigned int>& addresses);
 	void add_neighboraddress(unsigned int neighbor_address);
 	void remove_neighboraddress(unsigned int neighbor_address);
-	bool contains_neighboraddress(unsigned int address);
+	bool contains_neighboraddress(unsigned int address) const;
+	void set_neighboraddresses(const std::list<unsigned int>& addresses);
 	void set_cost(unsigned int cost);
 	void has_state(bool state);
 	void set_sequencenumber(unsigned int sequence_number);
@@ -388,15 +390,21 @@ class FlowStateObjects
 public:
 	FlowStateObjects(LinkStateRoutingPolicy * ps);
 	~FlowStateObjects();
+	void addAddressToFSOs(const std::string& name,
+			      unsigned int address,
+			      bool neighbor);
+	void removeAddressFromFSOs(const std::string& name,
+				   unsigned int address,
+				   bool neighbor);
 	bool addObject(const FlowStateObject& object);
 	void deprecateObject(const std::string& fqn, 
 			     unsigned int max_age);
-	void deprecateObjects(unsigned int neigh_address,
-			      unsigned int address,
+	void deprecateObjects(const std::string& neigh_name,
+			      const std::string& name,
 			      unsigned int max_age);
-	void deprecateObjectsWithAddress(unsigned int address,
-					 unsigned int max_age,
-					 bool neighbor);
+	void deprecateObjectsWithName(const std::string& name,
+				      unsigned int max_age,
+				      bool neighbor);
 	FlowStateObject * getObject(const std::string& fqn);
 	void getModifiedFSOs(std::list<FlowStateObject *>& result);
 	void getAllFSOs(std::list<FlowStateObject>& result);
@@ -472,27 +480,31 @@ public:
 	~FlowStateManager();
 	//void setAvoidPort(int avoidPort);
 	/// add a FlowStateObject
-	bool addNewFSO(unsigned int address,
-		       unsigned int neighborAddress,
+	void addAddressToFSOs(const std::string& name,
+			      unsigned int address,
+			      bool neighbor);
+	bool addNewFSO(const std::string& name,
+		       std::list<unsigned int>& addresses,
+		       const std::string& neighbor_name,
+		       std::list<unsigned int>& neighbor_addresses,
 		       unsigned int cost,
 		       int avoid_port);
 	/// Set a FSO ready for removal
 	void deprecateObject(std::string fqn);
-	void deprecateObjectsNeighbor(unsigned int neigh_address,
-	                              unsigned int address);
+	void removeAddressFromFSOs(const std::string& name,
+				   unsigned int address,
+				   bool neighbor);
+	void deprecateObjectsNeighbor(const std::string& neigh_name,
+	                              const std::string& name);
 	std::map <int, std::list<FlowStateObject*> > prepareForPropagation
 	        (const std::list<rina::FlowInformation>& flows);
 	void incrementAge();
 	void updateObjects(const std::list<FlowStateObject>& newObjects,
-			   unsigned int avoidPort,
-			   unsigned int address,
-			   unsigned int old_address);
+			   unsigned int avoidPort);
 	void prepareForPropagation(std::map<int, std::list<FlowStateObject> >& to_propagate) const;
 	void encodeAllFSOs(rina::ser_obj_t& obj) const;
 	void getAllFSOs(std::list<FlowStateObject>& list) const;
 	bool tableUpdate() const;
-	void deprecateAllObjectsWithAddress(unsigned int address,
-					    bool neighbor);
 	void removeObject(const std::string& fqn);
 
 	// accessors
@@ -543,6 +555,7 @@ private:
 class ExpireOldAddressTimerTask : public rina::TimerTask {
 public:
 	ExpireOldAddressTimerTask(LinkStateRoutingPolicy * lsr_policy,
+				  const std::string& name,
 				  unsigned int address,
 				  bool neighbor);
 	~ExpireOldAddressTimerTask() throw(){};
@@ -551,6 +564,7 @@ public:
 private:
 	LinkStateRoutingPolicy * lsr_policy_;
 	unsigned int address;
+	std::string name;
 	bool neighbor;
 };
 
@@ -632,7 +646,9 @@ public:
 	void routingTableUpdate();
 
 	/// Deprecate all LSOs containing the address passed to the method
-	void expireOldAddress(unsigned int address, bool neighbor);
+	void expireOldAddress(const std::string& name,
+			      unsigned int address,
+			      bool neighbor);
 
 	void updateObjects(const std::list<FlowStateObject>& newObjects,
 			   unsigned int avoidPort);
@@ -647,7 +663,6 @@ private:
 	IRoutingAlgorithm * routing_algorithm_;
 	IResiliencyAlgorithm * resiliency_algorithm_;
 	unsigned int wait_until_deprecate_address_;
-	unsigned int source_vertex_;
 	unsigned int maximum_age_;
 	bool test_;
 	FlowStateManager *db_;
@@ -698,9 +713,10 @@ private:
 
 	void processNeighborAddressChangeEvent(rina::NeighborAddressChangeEvent * event);
 
-	void removeDuplicateEntries(std::list<rina::RoutingTableEntry *>& rt);
-
 	void printNhopTable(std::list<rina::RoutingTableEntry *>& rt);
+
+	void populateAddresses(std::list<rina::RoutingTableEntry *>& rt,
+			       const std::list<FlowStateObject>& fsos);
 };
 
 /// Encoder of Flow State object

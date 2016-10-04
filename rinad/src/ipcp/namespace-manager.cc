@@ -177,11 +177,13 @@ void DFTRIBObj::eventHappened(rina::InternalEvent * event)
 		(rina::ConnectiviyToNeighborLostEvent *) event;
 
 	CheckDFTEntriesToRemoveTimerTask * task = new CheckDFTEntriesToRemoveTimerTask(this,
-										       conEvent->neighbor_.address_);
+										       conEvent->neighbor_.address_,
+										       conEvent->neighbor_.name_.processName);
 	timer.scheduleTask(task, 5000);
 }
 
-void DFTRIBObj::checkDFTEntriesToRemove(unsigned int address)
+void DFTRIBObj::checkDFTEntriesToRemove(unsigned int address,
+					const std::string& name)
 {
 	rina::ScopedLock g(lock);
 	std::list<rina::RoutingTableEntry> nextHops;
@@ -191,7 +193,7 @@ void DFTRIBObj::checkDFTEntriesToRemove(unsigned int address)
 	nextHops = namespace_manager_->ipcp->resource_allocator_->get_rt_entries();
 	for (std::list<rina::RoutingTableEntry>::iterator it = nextHops.begin();
 			it != nextHops.end(); ++it) {
-		if (it->address == address)
+		if (it->destination.name == name)
 			return;
 	}
 
@@ -780,15 +782,17 @@ unsigned int NamespaceManager::getAdressByname(const rina::ApplicationProcessNam
 
 //Class checkDFTEntriesToRemoveTimerTask
 CheckDFTEntriesToRemoveTimerTask::CheckDFTEntriesToRemoveTimerTask(DFTRIBObj * dft_,
-				 	 	   	   	   unsigned int address_)
+				 	 	   	   	   unsigned int address_,
+								   const std::string name_)
 {
 	dft = dft_;
 	address = address_;
+	name = name_;
 }
 
 void CheckDFTEntriesToRemoveTimerTask::run()
 {
-	dft->checkDFTEntriesToRemove(address);
+	dft->checkDFTEntriesToRemove(address, name);
 }
 
 } //namespace rinad

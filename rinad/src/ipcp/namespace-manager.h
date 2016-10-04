@@ -137,7 +137,8 @@ public:
 		return class_name;
 	};
 
-	void checkDFTEntriesToRemove(unsigned int address);
+	void checkDFTEntriesToRemove(unsigned int address,
+				     const std::string& name);
 
 	const static std::string class_name;
 	const static std::string object_name;
@@ -225,13 +226,15 @@ private:
 class CheckDFTEntriesToRemoveTimerTask : public rina::TimerTask {
 public:
 	CheckDFTEntriesToRemoveTimerTask(DFTRIBObj * dft_,
-					 unsigned int address_);
+					 unsigned int address_,
+					 const std::string name);
 	~CheckDFTEntriesToRemoveTimerTask() throw(){};
 	void run();
 
 private:
 	unsigned int address;
 	DFTRIBObj* dft;
+	std::string name;
 };
 
 } //namespace rinad
