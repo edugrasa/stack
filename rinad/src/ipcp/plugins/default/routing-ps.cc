@@ -1422,9 +1422,9 @@ void FlowStateObjects::encodeAllFSOs(rina::ser_obj_t& obj)
 	}
 }
 
-void FlowStateObjects::getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos)
+void FlowStateObjects::getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos,
+						unsigned int max_objects)
 {
-	int max_size = 15;
 	rina::ScopedLock g(lock);
 	std::list<FlowStateObject> fsolist;
 
@@ -1434,7 +1434,7 @@ void FlowStateObjects::getAllFSOsForPropagation(std::list< std::list<FlowStateOb
 	for (std::map<std::string, FlowStateObject*>::iterator it
 			= objects.begin(); it != objects.end();++it)
 	{
-		if (fsolist.size() == max_size) {
+		if (fsolist.size() == max_objects) {
 			fsos.push_back(fsolist);
 			fsolist.clear();
 		}
@@ -1619,10 +1619,9 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 	}
 }
 
-void FlowStateManager::prepareForPropagation(
-	std::map<int, std::list< std::list<FlowStateObject> > >&  to_propagate) const
+void FlowStateManager::prepareForPropagation(std::map<int, std::list< std::list<FlowStateObject> > >&  to_propagate,
+					     unsigned int max_objects) const
 {
-	int max_size = 15;
 	std::list<FlowStateObject> newfsolist;
 	bool added = false;
 
@@ -1649,7 +1648,7 @@ void FlowStateManager::prepareForPropagation(
 
 				for(std::list< std::list<FlowStateObject> >::iterator it3 = it2->second.begin();
 						it3 != it2->second.end(); ++it3) {
-					if (it3->size() < max_size) {
+					if (it3->size() < max_objects) {
 						it3->push_back(**it);
 						added = true;
 						break;
@@ -1693,9 +1692,10 @@ void FlowStateManager::getAllFSOs(std::list<FlowStateObject>& list) const
 	fsos->getAllFSOs(list);
 }
 
-void FlowStateManager::getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsolist)
+void FlowStateManager::getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsolist,
+						unsigned int max_objects)
 {
-	fsos->getAllFSOsForPropagation(fsolist);
+	fsos->getAllFSOsForPropagation(fsolist, max_objects);
 }
 
 void FlowStateManager::deprecateObjectsNeighbor(const std::string& neigh_name,
@@ -1807,6 +1807,7 @@ const std::string LinkStateRoutingPolicy::ROUTING_ALGORITHM = "routingAlgorithm"
 const int LinkStateRoutingPolicy::MAXIMUM_BUFFER_SIZE = 4096;
 const std::string LinkStateRoutingPolicy::DIJKSTRA_ALG = "Dijkstra";
 const std::string LinkStateRoutingPolicy::ECMP_DIJKSTRA_ALG = "ECMPDijkstra";
+const std::string LinkStateRoutingPolicy::MAXIMUM_OBJECTS_PER_ROUTING_UPDATE = "maxObjectsPerUpdate";
 
 LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 {
@@ -1817,6 +1818,7 @@ LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 	resiliency_algorithm_ = 0;
 	db_ = 0;
 	wait_until_deprecate_address_ = 0;
+	max_objects_per_rupdate_ = MAX_OBJECTS_PER_ROUTING_UPDATE_DEFAULT;
 
 	subscribeToEvents();
 	timer_ = new rina::Timer();
@@ -1924,6 +1926,13 @@ void LinkStateRoutingPolicy::set_dif_configuration(
 		PropagateFSODBTimerTask * pfttask = new PropagateFSODBTimerTask(this,
 				delay);
 		timer_->scheduleTask(pfttask, delay);
+
+		// Maximum objects per routing update
+		try {
+			max_objects_per_rupdate_ = psconf.get_param_value_as_uint(MAXIMUM_OBJECTS_PER_ROUTING_UPDATE);
+		} catch (rina::Exception &e) {
+			max_objects_per_rupdate_ = MAX_OBJECTS_PER_ROUTING_UPDATE_DEFAULT;
+		}
 	}
 
 }
@@ -2099,7 +2108,7 @@ void LinkStateRoutingPolicy::processNeighborAddedEvent(
 
 	std::list< std::list<FlowStateObject> > all_fsos;
 	FlowStateObjectListEncoder encoder;
-	db_->getAllFSOsForPropagation(all_fsos);
+	db_->getAllFSOsForPropagation(all_fsos, max_objects_per_rupdate_);
 	for (std::list< std::list<FlowStateObject> >::iterator it = all_fsos.begin();
 			it != all_fsos.end(); ++it) {
 		try {
@@ -2140,7 +2149,7 @@ void LinkStateRoutingPolicy::propagateFSDB()
 	}
 
 	//3 Get the objects to send
-	db_->prepareForPropagation(objectsToSend);
+	db_->prepareForPropagation(objectsToSend, max_objects_per_rupdate_);
 
 	if (objectsToSend.size() == 0) {
 		return;
