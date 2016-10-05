@@ -413,6 +413,7 @@ public:
 	void updateObject(const std::string& fqn, 
 			  unsigned int avoid_port);
 	void encodeAllFSOs(rina::ser_obj_t& obj);
+	void getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos);
 	bool is_modified() const;
 	void has_modified(bool modified);
 	void set_wait_until_remove_object(unsigned int wait_object);
@@ -501,11 +502,12 @@ public:
 	void incrementAge();
 	void updateObjects(const std::list<FlowStateObject>& newObjects,
 			   unsigned int avoidPort);
-	void prepareForPropagation(std::map<int, std::list<FlowStateObject> >& to_propagate) const;
+	void prepareForPropagation(std::map<int, std::list< std::list<FlowStateObject> > >& to_propagate) const;
 	void encodeAllFSOs(rina::ser_obj_t& obj) const;
 	void getAllFSOs(std::list<FlowStateObject>& list) const;
 	bool tableUpdate() const;
 	void removeObject(const std::string& fqn);
+	void getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos);
 
 	// accessors
 	void set_maximum_age(unsigned int max_age);
