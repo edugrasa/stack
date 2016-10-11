@@ -2138,13 +2138,11 @@ void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>
 		ss.str(std::string());
 		ss.clear();
 		current = *it;
-		ss << "Dest. name: " << current->destination.name
-		   << "Dest. addresses: " << current->destination.get_addresses_as_string()
+		ss << "Dest. addresses: " << current->destination.get_addresses_as_string()
 		   << "; QoS-id: " << current->qosId
 		   << "; Next hops: ";
 		for (jt = current->nextHopNames.begin();
 				jt != current->nextHopNames.end(); ++jt) {
-			ss << jt->alts.front().name << ": "
 			   << jt->alts.front().get_addresses_as_string() << "; ";
 		}
 
