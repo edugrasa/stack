@@ -413,6 +413,8 @@ public:
 	void updateObject(const std::string& fqn, 
 			  unsigned int avoid_port);
 	void encodeAllFSOs(rina::ser_obj_t& obj);
+	void getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos,
+				      unsigned int max_objects);
 	bool is_modified() const;
 	void has_modified(bool modified);
 	void set_wait_until_remove_object(unsigned int wait_object);
@@ -501,11 +503,14 @@ public:
 	void incrementAge();
 	void updateObjects(const std::list<FlowStateObject>& newObjects,
 			   unsigned int avoidPort);
-	void prepareForPropagation(std::map<int, std::list<FlowStateObject> >& to_propagate) const;
+	void prepareForPropagation(std::map<int, std::list< std::list<FlowStateObject> > >& to_propagate,
+				   unsigned int max_objects) const;
 	void encodeAllFSOs(rina::ser_obj_t& obj) const;
 	void getAllFSOs(std::list<FlowStateObject>& list) const;
 	bool tableUpdate() const;
 	void removeObject(const std::string& fqn);
+	void getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos,
+				      unsigned int max_objects);
 
 	// accessors
 	void set_maximum_age(unsigned int max_age);
@@ -597,6 +602,7 @@ public:
 	static const std::string WAIT_UNTIL_REMOVE_OBJECT;
 	static const std::string WAIT_UNTIL_DEPRECATE_OLD_ADDRESS;
 	static const std::string ROUTING_ALGORITHM;
+	static const std::string MAXIMUM_OBJECTS_PER_ROUTING_UPDATE;
 
         static const int PULSES_UNTIL_FSO_EXPIRATION_DEFAULT = 100000;
         static const int WAIT_UNTIL_READ_CDAP_DEFAULT = 5001;
@@ -606,6 +612,7 @@ public:
         static const int WAIT_UNTIL_AGE_INCREMENT_DEFAULT = 997;
         static const long WAIT_UNTIL_REMOVE_OBJECT_DEFAULT = 2300;
         static const long WAIT_UNTIL_DEPRECATE_OLD_ADDRESS_DEFAULT = 10000;
+        static const unsigned int MAX_OBJECTS_PER_ROUTING_UPDATE_DEFAULT = 15;
         static const std::string DIJKSTRA_ALG;
         static const std::string ECMP_DIJKSTRA_ALG;
 
@@ -664,6 +671,7 @@ private:
 	IResiliencyAlgorithm * resiliency_algorithm_;
 	unsigned int wait_until_deprecate_address_;
 	unsigned int maximum_age_;
+	unsigned int max_objects_per_rupdate_;
 	bool test_;
 	FlowStateManager *db_;
 	rina::Lockable lock_;

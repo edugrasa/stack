@@ -1422,6 +1422,31 @@ void FlowStateObjects::encodeAllFSOs(rina::ser_obj_t& obj)
 	}
 }
 
+void FlowStateObjects::getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsos,
+						unsigned int max_objects)
+{
+	rina::ScopedLock g(lock);
+	std::list<FlowStateObject> fsolist;
+
+	if (objects.empty())
+		return;
+
+	for (std::map<std::string, FlowStateObject*>::iterator it
+			= objects.begin(); it != objects.end();++it)
+	{
+		if (fsolist.size() == max_objects) {
+			fsos.push_back(fsolist);
+			fsolist.clear();
+		}
+
+		fsolist.push_back(*(it->second));
+	}
+
+	if (fsolist.size() != 0) {
+		fsos.push_back(fsolist);
+	}
+}
+
 bool FlowStateObjects::is_modified() const
 {
 	return modified_;
@@ -1594,9 +1619,12 @@ void FlowStateManager::updateObjects(const std::list<FlowStateObject>& newObject
 	}
 }
 
-void FlowStateManager::prepareForPropagation(
-	std::map<int, std::list<FlowStateObject> >&  to_propagate) const
+void FlowStateManager::prepareForPropagation(std::map<int, std::list< std::list<FlowStateObject> > >&  to_propagate,
+					     unsigned int max_objects) const
 {
+	std::list<FlowStateObject> newfsolist;
+	bool added = false;
+
 	//1 Get the FSOs to propagate
 	std::list<FlowStateObject *> modifiedFSOs;
 	fsos->getModifiedFSOs(modifiedFSOs);
@@ -1610,14 +1638,30 @@ void FlowStateManager::prepareForPropagation(
 			(*it)->get_age(),
 			(*it)->is_state());
 
-		for(std::map<int, std::list<FlowStateObject> >::iterator it2 =
+		for(std::map<int, std::list< std::list<FlowStateObject> > >::iterator it2 =
 				to_propagate.begin(); it2 != to_propagate.end(); ++it2)
 		{
 			if(it2->first != (*it)->get_avoidport())
 			{
-				it2->second.push_back(**it);
+				added = false;
+				newfsolist.clear();
+
+				for(std::list< std::list<FlowStateObject> >::iterator it3 = it2->second.begin();
+						it3 != it2->second.end(); ++it3) {
+					if (it3->size() < max_objects) {
+						it3->push_back(**it);
+						added = true;
+						break;
+					}
+				}
+
+				if (!added) {
+					newfsolist.push_back(**it);
+					it2->second.push_back(newfsolist);
+				}
 			}
 		}
+
 		(*it)->has_modified(false);
 		(*it)->set_avoidport(NO_AVOID_PORT);
 	}
@@ -1646,6 +1690,12 @@ void FlowStateManager::set_wait_until_remove_object(unsigned int wait_object)
 void FlowStateManager::getAllFSOs(std::list<FlowStateObject>& list) const
 {
 	fsos->getAllFSOs(list);
+}
+
+void FlowStateManager::getAllFSOsForPropagation(std::list< std::list<FlowStateObject> >& fsolist,
+						unsigned int max_objects)
+{
+	fsos->getAllFSOsForPropagation(fsolist, max_objects);
 }
 
 void FlowStateManager::deprecateObjectsNeighbor(const std::string& neigh_name,
@@ -1757,6 +1807,7 @@ const std::string LinkStateRoutingPolicy::ROUTING_ALGORITHM = "routingAlgorithm"
 const int LinkStateRoutingPolicy::MAXIMUM_BUFFER_SIZE = 4096;
 const std::string LinkStateRoutingPolicy::DIJKSTRA_ALG = "Dijkstra";
 const std::string LinkStateRoutingPolicy::ECMP_DIJKSTRA_ALG = "ECMPDijkstra";
+const std::string LinkStateRoutingPolicy::MAXIMUM_OBJECTS_PER_ROUTING_UPDATE = "maxObjectsPerUpdate";
 
 LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 {
@@ -1767,6 +1818,7 @@ LinkStateRoutingPolicy::LinkStateRoutingPolicy(IPCProcess * ipcp)
 	resiliency_algorithm_ = 0;
 	db_ = 0;
 	wait_until_deprecate_address_ = 0;
+	max_objects_per_rupdate_ = MAX_OBJECTS_PER_ROUTING_UPDATE_DEFAULT;
 
 	subscribeToEvents();
 	timer_ = new rina::Timer();
@@ -1874,6 +1926,13 @@ void LinkStateRoutingPolicy::set_dif_configuration(
 		PropagateFSODBTimerTask * pfttask = new PropagateFSODBTimerTask(this,
 				delay);
 		timer_->scheduleTask(pfttask, delay);
+
+		// Maximum objects per routing update
+		try {
+			max_objects_per_rupdate_ = psconf.get_param_value_as_uint(MAXIMUM_OBJECTS_PER_ROUTING_UPDATE);
+		} catch (rina::Exception &e) {
+			max_objects_per_rupdate_ = MAX_OBJECTS_PER_ROUTING_UPDATE_DEFAULT;
+		}
 	}
 
 }
@@ -2047,24 +2106,30 @@ void LinkStateRoutingPolicy::processNeighborAddedEvent(
 		}
 	}
 
-	try {
-		rina::cdap_rib::obj_info_t obj;
-		rina::cdap_rib::con_handle_t con;
-		obj.class_ = FlowStateRIBObjects::clazz_name;
-		obj.name_ = FlowStateRIBObjects::object_name;
-		db_->encodeAllFSOs(obj.value_);
-		obj.inst_ = 0;
-		rina::cdap_rib::flags_t flags;
-		rina::cdap_rib::filt_info_t filt;
-		con.port_id = portId;
-		if (obj.value_.size_ != 0)
-			rib_daemon_->getProxy()->remote_write(con,
-							      obj,
-							      flags,
-							      filt,
-							      0);
-	} catch (rina::Exception &e) {
-		LOG_IPCP_ERR("Problems encoding and sending CDAP message: %s", e.what());
+	std::list< std::list<FlowStateObject> > all_fsos;
+	FlowStateObjectListEncoder encoder;
+	db_->getAllFSOsForPropagation(all_fsos, max_objects_per_rupdate_);
+	for (std::list< std::list<FlowStateObject> >::iterator it = all_fsos.begin();
+			it != all_fsos.end(); ++it) {
+		try {
+			rina::cdap_rib::obj_info_t obj;
+			rina::cdap_rib::con_handle_t con;
+			obj.class_ = FlowStateRIBObjects::clazz_name;
+			obj.name_ = FlowStateRIBObjects::object_name;
+			encoder.encode(*it, obj.value_);
+			obj.inst_ = 0;
+			rina::cdap_rib::flags_t flags;
+			rina::cdap_rib::filt_info_t filt;
+			con.port_id = portId;
+			if (obj.value_.size_ != 0)
+				rib_daemon_->getProxy()->remote_write(con,
+						obj,
+						flags,
+						filt,
+						0);
+		} catch (rina::Exception &e) {
+			LOG_IPCP_ERR("Problems encoding and sending CDAP message: %s", e.what());
+		}
 	}
 }
 
@@ -2076,15 +2141,15 @@ void LinkStateRoutingPolicy::propagateFSDB()
 	std::list<rina::FlowInformation> nMinusOneFlows =
 			ipc_process_->resource_allocator_->get_n_minus_one_flow_manager()->getAllNMinusOneFlowInformation();
 	//2 Initilize the map
-	std::map <int, std::list<FlowStateObject> > objectsToSend;
+	std::map <int, std::list< std::list<FlowStateObject> > > objectsToSend;
 	for(std::list<rina::FlowInformation>::iterator it = nMinusOneFlows.begin();
 		it != nMinusOneFlows.end(); ++it) 
 	{
-		objectsToSend[it->portId] = std::list<FlowStateObject>();
+		objectsToSend[it->portId] = std::list< std::list<FlowStateObject> >();
 	}
 
 	//3 Get the objects to send
-	db_->prepareForPropagation(objectsToSend);
+	db_->prepareForPropagation(objectsToSend, max_objects_per_rupdate_);
 
 	if (objectsToSend.size() == 0) {
 		return;
@@ -2092,31 +2157,34 @@ void LinkStateRoutingPolicy::propagateFSDB()
 
 	FlowStateObjectListEncoder encoder;
 	rina::cdap_rib::con_handle_t con;
-	for (std::map<int, std::list<FlowStateObject> >::iterator it = objectsToSend.begin();
+	for (std::map<int, std::list< std::list<FlowStateObject> > >::iterator it = objectsToSend.begin();
 		it != objectsToSend.end(); ++it)
 
 	{
 		if (it->second.size() == 0)
 			continue;
 
-		rina::cdap_rib::flags flags;
-		rina::cdap_rib::filt_info_t filter;
-		try
-		{
-			rina::cdap_rib::object_info obj;
-			obj.class_ = FlowStateRIBObjects::clazz_name;
-			obj.name_ = FlowStateRIBObjects::object_name;
-			encoder.encode(it->second, obj.value_);
-			con.port_id = it->first;
-			rib_daemon_->getProxy()->remote_write(con,
-							      obj,
-							      flags,
-							      filter,
-							      0);
-		}
-		catch (rina::Exception &e) 
-		{
-			LOG_IPCP_ERR("Errors sending message: %s", e.what());
+		for (std::list< std::list<FlowStateObject> >::iterator it2 = it->second.begin();
+				it2 != it->second.end(); ++it2) {
+			rina::cdap_rib::flags flags;
+			rina::cdap_rib::filt_info_t filter;
+			try
+			{
+				rina::cdap_rib::object_info obj;
+				obj.class_ = FlowStateRIBObjects::clazz_name;
+				obj.name_ = FlowStateRIBObjects::object_name;
+				encoder.encode(*it2, obj.value_);
+				con.port_id = it->first;
+				rib_daemon_->getProxy()->remote_write(con,
+						obj,
+						flags,
+						filter,
+						0);
+			}
+			catch (rina::Exception &e)
+			{
+				LOG_IPCP_ERR("Errors sending message: %s", e.what());
+			}
 		}
 	}
 }
