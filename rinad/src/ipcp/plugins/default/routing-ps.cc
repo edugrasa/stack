@@ -2211,7 +2211,7 @@ void LinkStateRoutingPolicy::printNhopTable(std::list<rina::RoutingTableEntry *>
 		   << "; Next hops: ";
 		for (jt = current->nextHopNames.begin();
 				jt != current->nextHopNames.end(); ++jt) {
-			   << jt->alts.front().get_addresses_as_string() << "; ";
+			 ss << jt->alts.front().get_addresses_as_string() << "; ";
 		}
 
 		LOG_IPCP_INFO("%s", ss.str().c_str());
