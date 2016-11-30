@@ -98,7 +98,7 @@ void NeighborRIBObj::create_cb(const rina::rib::rib_handle_t rib,
 
     if (class_ != NeighborRIBObj::class_name)
     {
-            LOG_ERR("Create operation failed: received an invalid class "
+            LOG_IPCP_ERR("Create operation failed: received an invalid class "
             		"name '%s' during create operation in '%s'",
                     class_.c_str(), fqn.c_str());
             res.code_ = rina::cdap_rib::CDAP_INVALID_OBJ_CLASS;
@@ -113,18 +113,24 @@ void NeighborRIBObj::create_cb(const rina::rib::rib_handle_t rib,
 
 bool NeighborRIBObj::createNeighbor(rina::Neighbor &object)
 {
-	LOG_IPCP_DBG("Enrolling to neighbor %s", object.get_name().processName.c_str());
+	LOG_IPCP_DBG("Enrolling to neighbor %s",
+		 object.get_name().processName.c_str());
 
-	rina::EnrollToDAFRequestEvent* event;
-	event->neighborName = object.get_name();
-	event->dafName = rinad::IPCPFactory::getIPCP()->
+	std::list<rina::ApplicationProcessNamingInformation>::const_iterator it;
+
+	rina::EnrollToDAFRequestEvent event;
+	event.neighborName = object.get_name();
+	event.dafName = rinad::IPCPFactory::getIPCP()->
     		get_dif_information().dif_name_;
-	event->supportingDIFName = object.
-			get_supporting_dif_name();
+	for (it = object.supporting_difs_.begin();
+			it != object.supporting_difs_.end(); ++it) {
+		LOG_IPCP_DBG("Supporting DIF name %s", it->processName.c_str());
+		event.supportingDIFName.processName = it->processName;
+	}
 	rinad::IPCPFactory::getIPCP()->enrollment_task_->processEnrollmentRequestEvent(event);
 
-    LOG_INFO("IPC Process enrollment to neighbor %s completed successfully",
-    	 object.get_name().processName.c_str());
+	LOG_IPCP_INFO("IPC Process enrollment to neighbor %s in process",
+    	object.get_name().processName.c_str());
 
 	return true;
 }
@@ -187,7 +193,7 @@ void NeighborsRIBObj::create(const rina::cdap_rib::con_handle_t &con,
 		}
 
 		if (!supportingDifInCommon) {
-			LOG_INFO("Ignoring neighbor %s because we don't have an N-1 DIF in common",
+			LOG_IPCP_INFO("Ignoring neighbor %s because we don't have an N-1 DIF in common",
 					iterator->name_.processName.c_str());
 			continue;
 		}
@@ -450,6 +456,7 @@ void * doNeighborsEnrollerWork(void * arg)
 //Class IEnrollmentStateMachine
 const std::string IEnrollmentStateMachine::STATE_NULL = "NULL";
 const std::string IEnrollmentStateMachine::STATE_ENROLLED = "ENROLLED";
+const std::string IEnrollmentStateMachine::STATE_TERMINATED = "TERMINATED";
 
 IEnrollmentStateMachine::IEnrollmentStateMachine(IPCProcess * ipcp,
 						 const rina::ApplicationProcessNamingInformation& remote_naming_info,
@@ -492,7 +499,7 @@ void IEnrollmentStateMachine::release(int invoke_id,
 
 	createOrUpdateNeighborInformation(false);
 
-	state_ = STATE_NULL;
+	state_ = STATE_TERMINATED;
 }
 
 void IEnrollmentStateMachine::releaseResult(const rina::cdap_rib::res_info_t &res,
@@ -503,8 +510,7 @@ void IEnrollmentStateMachine::releaseResult(const rina::cdap_rib::res_info_t &re
 	if (!isValidPortId(con_handle.port_id))
 		return;
 
-	if (state_ != STATE_NULL)
-		state_ = STATE_NULL;
+	state_ = STATE_TERMINATED;
 }
 
 void IEnrollmentStateMachine::flowDeallocated(int portId)
@@ -519,7 +525,13 @@ void IEnrollmentStateMachine::flowDeallocated(int portId)
 
 	createOrUpdateNeighborInformation(false);
 
-	state_ = STATE_NULL;
+	state_ = STATE_TERMINATED;
+}
+
+std::string IEnrollmentStateMachine::get_state()
+{
+	rina::ScopedLock g(lock_);
+	return state_;
 }
 
 bool IEnrollmentStateMachine::isValidPortId(int portId)
@@ -537,13 +549,14 @@ bool IEnrollmentStateMachine::isValidPortId(int portId)
 void IEnrollmentStateMachine::abortEnrollment(const rina::ApplicationProcessNamingInformation& remotePeerNamingInfo,
 			int portId, const std::string& reason, bool sendReleaseMessage)
 {
-	state_ = STATE_NULL;
+	assert(!lock_.trylock());
 	AbortEnrollmentTimerTask * task = new AbortEnrollmentTimerTask(enrollment_task_,
 								       remotePeerNamingInfo,
 								       portId,
 								       reason,
 								       sendReleaseMessage);
-	timer_.scheduleTask(task, 10);
+	timer_.scheduleTask(task, 0);
+	state_ = STATE_TERMINATED;
 }
 
 void IEnrollmentStateMachine::createOrUpdateNeighborInformation(bool enrolled)
@@ -615,6 +628,7 @@ EnrollmentFailedTimerTask::EnrollmentFailedTimerTask(IEnrollmentStateMachine * s
 
 void EnrollmentFailedTimerTask::run() {
 	try {
+		rina::ScopedLock g(state_machine_->lock_);
 		state_machine_->abortEnrollment(state_machine_->remote_peer_.name_,
 						state_machine_->con.port_id,
 						reason_, true);
@@ -821,6 +835,7 @@ void EnrollmentTask::set_dif_configuration(const rina::DIFConfiguration& dif_con
 	if (neigh_enroll_per_ms_ > 0) {
 		rina::ThreadAttributes * threadAttributes = new rina::ThreadAttributes();
 		threadAttributes->setJoinable();
+		threadAttributes->setName("neighbor-enroller");
 		neighbors_enroller_ = new rina::Thread(&doNeighborsEnrollerWork,
 						      (void *) ipcp,
 						      threadAttributes);
@@ -834,13 +849,13 @@ void EnrollmentTask::set_dif_configuration(const rina::DIFConfiguration& dif_con
 	ipcp_ps->set_dif_configuration(dif_configuration);
 }
 
-void EnrollmentTask::processEnrollmentRequestEvent(rina::EnrollToDAFRequestEvent* event)
+void EnrollmentTask::processEnrollmentRequestEvent(const rina::EnrollToDAFRequestEvent& event)
 {
 	//Can only accept enrollment requests if assigned to a DIF
 	if (ipcp->get_operational_state() != ASSIGNED_TO_DIF) {
 		LOG_IPCP_ERR("Rejected enrollment request since IPC Process is not ASSIGNED to a DIF");
 		try {
-			rina::extendedIPCManager->enrollToDIFResponse(*event, -1,
+			rina::extendedIPCManager->enrollToDIFResponse(event, -1,
 					std::list<rina::Neighbor>(), ipcp->get_dif_information());
 		}catch (rina::Exception &e) {
 			LOG_IPCP_ERR("Problems sending message to IPC Manager: %s", e.what());
@@ -851,13 +866,13 @@ void EnrollmentTask::processEnrollmentRequestEvent(rina::EnrollToDAFRequestEvent
 
 	//Check that the neighbor belongs to the same DIF as this IPC Process
 	if (ipcp->get_dif_information().get_dif_name().processName.
-			compare(event->dafName.processName) != 0) {
+			compare(event.dafName.processName) != 0) {
 		LOG_IPCP_ERR("Was requested to enroll to a neighbor who is member of DIF %s, but I'm member of DIF %s",
 				ipcp->get_dif_information().get_dif_name().processName.c_str(),
-				event->dafName.processName.c_str());
+				event.dafName.processName.c_str());
 
 		try {
-			rina::extendedIPCManager->enrollToDIFResponse(*event, -1,
+			rina::extendedIPCManager->enrollToDIFResponse(event, -1,
 					std::list<rina::Neighbor>(), ipcp->get_dif_information());
 		}catch (rina::Exception &e) {
 			LOG_IPCP_ERR("Problems sending message to IPC Manager: %s", e.what());
@@ -870,15 +885,15 @@ void EnrollmentTask::processEnrollmentRequestEvent(rina::EnrollToDAFRequestEvent
 	assert(nsmps);
 
 	rina::Neighbor neighbor;
-	neighbor.name_ = event->neighborName;
-	neighbor.supporting_dif_name_ = event->supportingDIFName;
+	neighbor.name_ = event.neighborName;
+	neighbor.supporting_dif_name_ = event.supportingDIFName;
 	unsigned int address = nsmps->getValidAddress(neighbor.name_.processName,
 			neighbor.name_.processInstance);
 	if (address != 0) {
 		neighbor.address_ = address;
 	}
 
-	rina::EnrollmentRequest request(neighbor, *event);
+	rina::EnrollmentRequest request(neighbor, event);
 	initiateEnrollment(request);
 }
 
@@ -1128,7 +1143,7 @@ bool EnrollmentTask::isEnrolledTo(const std::string& processName)
 	std::list<IEnrollmentStateMachine *>::const_iterator it;
 	for (it = machines.begin(); it != machines.end(); ++it) {
 		if ((*it)->remote_peer_.name_.processName.compare(processName) == 0 &&
-				(*it)->state_ != IEnrollmentStateMachine::STATE_NULL) {
+				(*it)->get_state() != IEnrollmentStateMachine::STATE_NULL) {
 			return true;
 		}
 	}
@@ -1266,6 +1281,11 @@ void EnrollmentTask::enrollmentFailed(const rina::ApplicationProcessNamingInform
 	assert(ipcp_ps);
 	ipcp_ps->inform_ipcm_about_failure(stateMachine);
 
+	rina::Sleep sleep;
+	while(stateMachine->get_state() != IEnrollmentStateMachine::STATE_TERMINATED) {
+		sleep.sleepForMili(1);
+	};
+
 	delete stateMachine;
 	stateMachine = 0;
 
@@ -1300,6 +1320,12 @@ void EnrollmentTask::release(int invoke_id,
 	try{
 		stateMachine = getEnrollmentStateMachine(con_handle.port_id,
 							 true);
+		if (!stateMachine) {
+			LOG_IPCP_DBG("State machine associated to portId %d already removed",
+				      con_handle.port_id);
+			return;
+		}
+
 		stateMachine->release(invoke_id,
 				      con_handle);
 	}catch(rina::Exception &e){

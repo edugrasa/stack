@@ -179,6 +179,7 @@ class IEnrollmentStateMachine : public rina::rib::RIBOpsRespHandler {
 public:
 	static const std::string STATE_NULL;
 	static const std::string STATE_ENROLLED;
+	static const std::string STATE_TERMINATED;
 
 	IEnrollmentStateMachine(IPCProcess * ipcp,
 			const rina::ApplicationProcessNamingInformation& remote_naming_info,
@@ -208,9 +209,10 @@ public:
 	/// @param cdapSessionDescriptor
 	void flowDeallocated(int portId);
 
+	std::string get_state();
+
 	rina::Neighbor remote_peer_;
 	bool enroller_;
-	std::string state_;
 
 protected:
 	bool isValidPortId(int portId);
@@ -237,6 +239,7 @@ protected:
 	rina::Lockable lock_;
 	rina::cdap_rib::con_handle_t con;
 	rina::TimerTask * last_scheduled_task_;
+	std::string state_;
 };
 
 class EnrollmentFailedTimerTask: public rina::TimerTask {
@@ -288,7 +291,7 @@ public:
 	void remove_neighbor(const std::string& neighbor_key);
 	bool isEnrolledTo(const std::string& applicationProcessName);
 	const std::list<std::string> get_enrolled_app_names() const;
-	void processEnrollmentRequestEvent(rina::EnrollToDAFRequestEvent * event);
+	void processEnrollmentRequestEvent(const rina::EnrollToDAFRequestEvent& event);
 	void initiateEnrollment(const rina::EnrollmentRequest& request);
 	void connect(const rina::cdap::CDAPMessage& message,
 	             const rina::cdap_rib::con_handle_t &con);
