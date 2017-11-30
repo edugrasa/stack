@@ -36,6 +36,10 @@
 #define MAX_PCIS_LEN (40 * 5)
 #define MAX_TAIL_LEN 20
 
+struct sock_skb_du {
+	struct du* du;
+};
+
 int du_destroy(struct du * du)
 {
 	bool free_du = false;
@@ -68,9 +72,13 @@ EXPORT_SYMBOL(is_du_ok);
 struct sk_buff * du_detach_skb(struct du * du)
 {
 	struct sk_buff *skb;
+	struct sock_skb_du * skb_du;
 
 	skb = du->skb;
 	du->skb = NULL;
+	skb_du = (struct sock_skb_du *) skb->cb;
+	skb_du->du = NULL;
+
 	return skb;
 }
 EXPORT_SYMBOL(du_detach_skb);
@@ -78,6 +86,7 @@ EXPORT_SYMBOL(du_detach_skb);
 struct du *du_create_gfp(size_t data_len, gfp_t flags)
 {
 	struct du *tmp;
+	struct sock_skb_du * skb_du;
 
 	tmp = rkzalloc(sizeof(*tmp), flags);
 	if (unlikely(!tmp))
@@ -89,6 +98,10 @@ struct du *du_create_gfp(size_t data_len, gfp_t flags)
 		LOG_ERR("Could not allocate DU...");
 		return NULL;
 	}
+
+	/* Add DU reference to SKB */
+	skb_du = (struct sock_skb_du *) tmp->skb->cb;
+	skb_du->du = tmp;
 
 	/* init PCI */
 	tmp->pci.h = NULL;
@@ -182,6 +195,7 @@ static struct du *du_dup_gfp(gfp_t flags,
 			     const struct du *du)
 {
 	struct du *tmp;
+	struct sock_skb_du * skb_du;
 
 	tmp = rkmalloc(sizeof(*tmp), flags);
 	if (!tmp)
@@ -193,6 +207,8 @@ static struct du *du_dup_gfp(gfp_t flags,
 		return NULL;
 	}
 
+	skb_du = (struct sock_skb_du *) tmp->skb->cb;
+	skb_du->du = tmp;
 	tmp->pci.h = du->pci.h;
 	tmp->pci.len = du->pci.len;
 	tmp->cfg = du->cfg;
@@ -219,6 +235,7 @@ EXPORT_SYMBOL(du_data_len);
 struct du * du_create_from_skb(struct sk_buff* skb)
 {
 	struct du *tmp;
+	struct sock_skb_du * skb_du;
 
 	if (unlikely(!skb)) {
 		LOG_ERR("Could not allocate SDU...");
@@ -230,6 +247,8 @@ struct du * du_create_from_skb(struct sk_buff* skb)
 		return NULL;
 
 	tmp->skb = skb;
+	skb_du = (struct sock_skb_du *) tmp->skb->cb;
+	skb_du->du = tmp;
 	tmp->pci.h = NULL;
 	tmp->cfg = NULL;
 	tmp->sdup_head = NULL;
@@ -348,6 +367,7 @@ struct du * du_create_gfp_efcp(pdu_type_t type, struct efcp_config *cfg,
 			       gfp_t flags)
 {
 	struct du *tmp;
+	struct sock_skb_du * skb_du;
 	ssize_t pci_len;
 
 	ASSERT(cfg);
@@ -365,6 +385,9 @@ struct du * du_create_gfp_efcp(pdu_type_t type, struct efcp_config *cfg,
 		return NULL;
 	}
 	skb_reserve(tmp->skb, MAX_PCIS_LEN);
+
+	skb_du = (struct sock_skb_du *) tmp->skb->cb;
+	skb_du->du = tmp;
 	tmp->skb->ip_summed = CHECKSUM_UNNECESSARY;
 	tmp->pci.h = skb_push(tmp->skb, pci_len);
 	tmp->pci.len = pci_len;
@@ -385,7 +408,11 @@ EXPORT_SYMBOL(du_create_efcp_ni);
 
 void du_attach_skb(struct du *du, struct sk_buff *skb)
 {
+	struct sock_skb_du * skb_du;
+
 	du->skb = skb;
+	skb_du = (struct sock_skb_du *) skb->cb;
+	skb_du->du = du;
 }
 EXPORT_SYMBOL(du_attach_skb);
 
