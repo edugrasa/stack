@@ -1,0 +1,11 @@
+{
+        "PluginName": “linux-qdiscs-plugin",
+        "PluginVersion": "1",
+        "PolicySets" : [
+                {
+                        "Name": “linux-qdiscs-ps",
+                        "Component": "rmt",
+                        "Version" : "1"
+                }
+        ]
+}

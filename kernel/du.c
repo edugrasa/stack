@@ -36,10 +36,6 @@
 #define MAX_PCIS_LEN (40 * 5)
 #define MAX_TAIL_LEN 20
 
-struct sock_skb_du {
-	struct du* du;
-};
-
 int du_destroy(struct du * du)
 {
 	bool free_du = false;

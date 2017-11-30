@@ -33,6 +33,10 @@ struct du {
 	struct sk_buff *skb;
 };
 
+struct sock_skb_du {
+	struct du* du;
+};
+
 struct pci * du_pci(struct du * du);
 struct du * du_create_ni(size_t data_len);
 struct du * du_create(size_t data_len);
