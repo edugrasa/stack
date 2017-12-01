@@ -22,7 +22,9 @@
 #include <linux/export.h>
 #include <linux/module.h>
 #include <net/sch_generic.h>
+#include <net/pkt_sched.h>
 #include <linux/string.h>
+#include <linux/version.h>
 
 #define RINA_PREFIX "linux-qdiscs-plugin"
 
@@ -83,7 +85,7 @@ struct du * linux_qdiscs_dequeue_policy(struct rmt_ps	  *ps,
 	}
 
 	ret = q->qdisc->dequeue(q->qdisc);
-	if (!ret_du) {
+	if (!ret) {
 		LOG_ERR("Could not dequeue scheduled pdu");
 		return NULL;
 	}
@@ -103,8 +105,6 @@ int linux_qdiscs_enqueue_policy(struct rmt_ps	  *ps,
 				struct du	  *du)
 {
 	struct linux_qdiscs_rmt_queue *q;
-	struct linux_qdiscs_data *data = ps->priv;
-	pdu_type_t pdu_type;
 	int result;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
 	struct sk_buff * to_free = NULL;
@@ -191,16 +191,12 @@ static void * linux_qdiscs_q_create_policy(struct rmt_ps      *ps,
 static int linux_qdiscs_q_destroy_policy(struct rmt_ps      *ps,
 				         struct rmt_n1_port *port)
 {
-        struct linux_qdiscs_data * data;
         struct linux_qdiscs_rmt_queue *   q;
 
         if (!ps || !port || !ps->priv) {
                 LOG_ERR("Wrong input parms for rmt_q_destroy_policy");
                 return -1;
         }
-
-        data = ps->priv;
-        ASSERT(data);
 
         q = port->rmt_ps_queues;
 
@@ -228,8 +224,6 @@ static int linux_qdiscs_ps_set_policy_set_param(struct ps_base * bps,
 				       	        const char *     name,
 						const char *     value)
 {
-	struct rmt_ps *ps = container_of(bps, struct rmt_ps, base);
-
 	LOG_ERR("Operation not yet supported");
 
 	return -1;
